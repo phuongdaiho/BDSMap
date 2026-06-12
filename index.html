@@ -132,15 +132,16 @@
       flex: 1;
       display: flex;
       overflow: hidden;
+      position: relative;
     }
 
     /* ── Map ── */
     #map { flex: 1; }
 
-    /* ── Sidebar (mobile drawer) ── */
+    /* ── Sidebar (mobile drawer, bắt đầu từ dưới search bar) ── */
     #sidebar-backdrop {
       display: none;
-      position: fixed;
+      position: absolute;
       inset: 0;
       background: rgba(0,0,0,0.45);
       z-index: 1999;
@@ -148,7 +149,7 @@
     #sidebar-backdrop.visible { display: block; }
 
     #sidebar {
-      position: fixed;
+      position: absolute;
       top: 0; right: 0; bottom: 0;
       width: 88vw;
       max-width: 340px;
@@ -503,11 +504,10 @@
     <div id="map">
       <div id="map-hint">Click vào bản đồ để thêm địa điểm</div>
     </div>
-  </div>
 
-  <div id="sidebar-backdrop" onclick="toggleSidebar()"></div>
-  <div id="sidebar">
-    <div class="sidebar-header">
+    <div id="sidebar-backdrop" onclick="toggleSidebar()"></div>
+    <div id="sidebar">
+      <div class="sidebar-header">
         <span>Danh sách địa điểm</span>
         <select id="group-by" title="Nhóm theo trường">
           <option value="">☰ Danh sách</option>
@@ -522,6 +522,7 @@
       <div id="location-list">
         <div class="sidebar-empty">Chưa có địa điểm nào.<br/>Click lên bản đồ để thêm.</div>
       </div>
+    </div>
   </div>
 
   <!-- Modal thêm/sửa địa điểm -->
