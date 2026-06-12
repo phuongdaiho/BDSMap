@@ -1557,7 +1557,12 @@
     }
 
     // ── Khởi tạo ──
-    if (!loadFromStorage()) loadDataXML();
+    if (loadFromStorage()) {
+      renderMarkers();
+      renderSidebar();
+    } else {
+      loadDataXML();
+    }
   </script>
 
   <!-- Đăng ký Service Worker (PWA offline) -->
