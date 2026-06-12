@@ -1,0 +1,1620 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Bản đồ</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#1a73e8" />
+
+  <!-- iOS -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Bản đồ" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      height: 100vh;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      /* Safe area cho notch / Dynamic Island iPhone */
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
+    }
+
+    /* ── Header ── */
+    header {
+      background: #1a73e8;
+      color: white;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      z-index: 1000;
+      flex-shrink: 0;
+    }
+    header svg { width: 24px; height: 24px; fill: white; flex-shrink: 0; }
+    header h1 { font-size: 1.05rem; font-weight: 600; flex: 1; }
+    #toggle-sidebar {
+      background: rgba(255,255,255,0.2);
+      border: none;
+      color: white;
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 0.82rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.2s;
+    }
+    #toggle-sidebar:hover { background: rgba(255,255,255,0.3); }
+    #sidebar-count {
+      background: white;
+      color: #1a73e8;
+      border-radius: 10px;
+      padding: 1px 7px;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+
+    /* ── Search bar ── */
+    .search-bar {
+      background: white;
+      padding: 7px 12px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      z-index: 999;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+    .search-bar input[type="text"] {
+      flex: 1; min-width: 140px;
+      border: 1px solid #ddd; border-radius: 20px;
+      padding: 6px 13px; font-size: 0.88rem; outline: none;
+    }
+    .search-bar input[type="text"]:focus { border-color: #1a73e8; }
+    .search-bar input[type="number"] {
+      width: 88px;
+      border: 1px solid #ddd; border-radius: 20px;
+      padding: 6px 11px; font-size: 0.83rem; outline: none; text-align: center;
+    }
+    .search-bar button {
+      background: #1a73e8; color: white; border: none;
+      border-radius: 20px; padding: 6px 14px;
+      font-size: 0.83rem; cursor: pointer; white-space: nowrap;
+      transition: background 0.2s;
+    }
+    .search-bar button:hover { background: #1557b0; }
+    .search-bar button.gray { background: #5f6368; }
+    .search-bar button.gray:hover { background: #3c4043; }
+    .upload-btn {
+      background: #f1f3f4; color: #444; border: 1px solid #ddd;
+      border-radius: 8px; padding: 7px 12px;
+      font-size: 0.82rem; cursor: pointer; white-space: nowrap;
+      transition: background 0.2s, opacity 0.2s; flex-shrink: 0;
+    }
+    .upload-btn:hover { background: #e0e0e0; }
+    .upload-btn.uploading { opacity: 0.55; pointer-events: none; }
+    #upload-status {
+      display: none; font-size: 0.78rem; margin-top: 5px;
+      padding: 5px 9px; border-radius: 6px; line-height: 1.4;
+    }
+    #upload-status.st-loading { background:#fff8e1; color:#e65100; }
+    #upload-status.st-success { background:#e8f5e9; color:#2e7d32; }
+    #upload-status.st-error   { background:#fce8e6; color:#c62828; }
+
+    .gray-btn {
+      background: #5f6368; color: white; border: none;
+      border-radius: 20px; padding: 6px 14px;
+      font-size: 0.83rem; cursor: pointer; white-space: nowrap;
+      transition: background 0.2s;
+    }
+    .gray-btn:hover { background: #3c4043; }
+    .search-bar .sep { width: 1px; height: 22px; background: #e0e0e0; flex-shrink: 0; }
+
+    /* ── Main area ── */
+    .main {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* ── Map ── */
+    #map { flex: 1; }
+
+    /* ── Sidebar ── */
+    #sidebar {
+      width: 280px;
+      min-width: 180px;
+      max-width: 560px;
+      background: #f8f9fa;
+      border-left: 1px solid #e0e0e0;
+      display: flex;
+      flex-direction: column;
+      transition: width 0.25s ease, opacity 0.25s ease;
+      overflow: hidden;
+      flex-shrink: 0;
+      position: relative;
+    }
+    #sidebar.hidden { width: 0 !important; opacity: 0; pointer-events: none; }
+    #sidebar.resizing { transition: none; }
+
+    #sidebar-resizer {
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 6px;
+      cursor: col-resize;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #sidebar-resizer::after {
+      content: '';
+      display: block;
+      width: 3px;
+      height: 40px;
+      border-radius: 3px;
+      background: #ccc;
+      transition: background 0.15s;
+    }
+    #sidebar-resizer:hover::after,
+    #sidebar-resizer.dragging::after { background: #1a73e8; }
+
+    .sidebar-header {
+      padding: 10px 14px 8px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #333;
+      border-bottom: 1px solid #e0e0e0;
+      background: white;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    #group-by {
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 3px 6px;
+      font-size: 0.75rem;
+      color: #555;
+      cursor: pointer;
+      background: white;
+      outline: none;
+      font-family: inherit;
+      transition: border-color 0.15s, background 0.15s;
+      flex-shrink: 0;
+      max-width: 120px;
+    }
+    #group-by:focus { border-color: #1a73e8; }
+    #group-by.active { border-color: #1a73e8; color: #1557b0; background: #e8f0fe; }
+
+    .group-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 14px 5px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #1557b0;
+      background: #e8f0fe;
+      border-bottom: 1px solid #c5d8f8;
+      letter-spacing: 0.02em;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s;
+    }
+    .group-header:hover { background: #d2e3fc; }
+    @keyframes my-loc-pulse {
+      0%   { transform: scale(1);   opacity: 0.6; }
+      70%  { transform: scale(2.2); opacity: 0;   }
+      100% { transform: scale(2.2); opacity: 0;   }
+    }
+    .my-location-icon { position: relative; width: 18px; height: 18px; }
+    .my-location-icon .dot {
+      position: absolute; inset: 0; background: #1a73e8;
+      border: 2.5px solid #fff; border-radius: 50%;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.35);
+    }
+    .my-location-icon .ring {
+      position: absolute; inset: 0; background: #1a73e8;
+      border-radius: 50%; opacity: 0.6;
+      animation: my-loc-pulse 1.8s ease-out infinite;
+    }
+    .group-chevron {
+      font-style: normal;
+      font-size: 0.68rem;
+      margin-right: 5px;
+      transition: transform 0.2s;
+      display: inline-block;
+    }
+    .group-header.collapsed .group-chevron { transform: rotate(-90deg); }
+    .group-count {
+      background: #1a73e8;
+      color: white;
+      border-radius: 10px;
+      padding: 1px 7px;
+      font-size: 0.7rem;
+      font-weight: 700;
+    }
+
+    #location-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px 0;
+    }
+
+    .loc-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 14px;
+      cursor: pointer;
+      border-bottom: 1px solid #f0f0f0;
+      transition: background 0.15s;
+      position: relative;
+    }
+    .loc-item:hover { background: #eef3ff; }
+    .loc-item:hover .loc-actions { opacity: 1; }
+
+    .loc-pin {
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      border: 2px solid white;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+      flex-shrink: 0;
+      margin-top: 3px;
+    }
+
+    .loc-info { flex: 1; min-width: 0; }
+    .loc-name {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #202124;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .loc-desc {
+      font-size: 0.75rem;
+      color: #666;
+      margin-top: 1px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .loc-coords {
+      font-size: 0.7rem;
+      color: #999;
+      margin-top: 2px;
+    }
+    .loc-price {
+      font-size: 0.75rem;
+      color: #e65100;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    .loc-actions {
+      display: flex;
+      gap: 4px;
+      opacity: 0;
+      transition: opacity 0.15s;
+      flex-shrink: 0;
+    }
+    .loc-actions button {
+      background: none;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 3px 7px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      color: #555;
+      transition: all 0.15s;
+    }
+    .loc-actions .btn-edit:hover { background: #e8f0fe; border-color: #1a73e8; color: #1a73e8; }
+    .loc-actions .btn-del:hover { background: #fce8e6; border-color: #d93025; color: #d93025; }
+
+    .drag-handle {
+      color: #bbb;
+      font-size: 1rem;
+      cursor: grab;
+      padding: 0 4px 0 0;
+      flex-shrink: 0;
+      line-height: 1;
+      align-self: center;
+      user-select: none;
+    }
+    .drag-handle:hover { color: #888; }
+    .loc-item.dragging { opacity: 0.4; }
+    .loc-item.drag-over-top { border-top: 2px solid #1a73e8; }
+    .loc-item.drag-over-bottom { border-bottom: 2px solid #1a73e8; }
+
+    .sidebar-empty {
+      text-align: center;
+      color: #aaa;
+      font-size: 0.85rem;
+      padding: 40px 20px;
+      line-height: 1.6;
+    }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 5000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-overlay.hidden { display: none; }
+
+    .modal {
+      background: white;
+      border-radius: 14px;
+      width: 100%;
+      max-width: 440px;
+      max-height: 92vh;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .modal-header {
+      background: #1a73e8;
+      color: white;
+      padding: 14px 18px;
+      font-weight: 600;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+    .modal-body {
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 13px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+    .form-group label { font-size: 0.82rem; font-weight: 600; color: #444; }
+    .form-group input, .form-group textarea, .form-group select {
+      border: 1px solid #ddd; border-radius: 8px;
+      padding: 8px 11px; font-size: 0.88rem;
+      font-family: inherit; outline: none; resize: none;
+      transition: border-color 0.2s; background: white;
+    }
+    .form-group input:focus, .form-group textarea:focus,
+    .form-group select:focus { border-color: #1a73e8; }
+    .form-group textarea { height: 72px; }
+    .form-row { display: flex; gap: 8px; }
+    .form-row .form-group { flex: 1; min-width: 0; }
+    .form-section-title {
+      font-size: 0.75rem; font-weight: 700; color: #1a73e8;
+      padding: 6px 0 4px; border-bottom: 1px solid #d2e3fc;
+      margin-bottom: 2px; letter-spacing: 0.02em;
+    }
+
+    .color-picker { display: flex; gap: 8px; align-items: center; }
+    .color-dot {
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 3px solid transparent;
+      transition: transform 0.15s, border-color 0.15s;
+    }
+    .color-dot:hover { transform: scale(1.15); }
+    .color-dot.selected { border-color: #333; transform: scale(1.15); }
+
+    .modal-footer {
+      padding: 12px 18px 14px;
+      display: flex;
+      gap: 10px;
+      border-top: 1px solid #eee;
+      background: white;
+      flex-shrink: 0;
+    }
+    .modal-footer button {
+      flex: 1;
+      border: none; border-radius: 10px;
+      padding: 11px 16px; font-size: 0.92rem;
+      font-weight: 600;
+      cursor: pointer; font-family: inherit;
+      transition: background 0.2s;
+    }
+    .btn-cancel { background: #f1f3f4; color: #555; }
+    .btn-cancel:hover { background: #e0e0e0; }
+    .btn-save { background: #1a73e8; color: white; }
+    .btn-save:hover { background: #1557b0; }
+
+    /* ── Search dropdown ── */
+    .search-wrap { position: relative; flex: 1; min-width: 140px; display: flex; }
+    .search-wrap input { width: 100%; }
+    #search-results {
+      position: absolute; top: 100%; left: 0; right: 0;
+      background: white; border: 1px solid #ddd; border-top: none;
+      border-radius: 0 0 10px 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      z-index: 9999; max-height: 200px; overflow-y: auto; display: none;
+    }
+    .result-item {
+      padding: 8px 13px; cursor: pointer;
+      font-size: 0.85rem; border-bottom: 1px solid #f0f0f0;
+    }
+    .result-item:hover { background: #f0f6ff; }
+    .result-item:last-child { border-bottom: none; }
+
+    /* ── Hint ── */
+    #map-hint {
+      position: absolute;
+      bottom: 16px; left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.62);
+      color: white; border-radius: 20px;
+      padding: 6px 16px; font-size: 0.78rem;
+      z-index: 500; pointer-events: none;
+      white-space: nowrap;
+      transition: opacity 0.5s;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+    <h1>Bản đồ</h1>
+    <button id="toggle-sidebar" onclick="toggleSidebar()">
+      📋 Địa điểm đã lưu <span id="sidebar-count">0</span>
+    </button>
+  </header>
+
+  <div class="search-bar">
+    <div class="search-wrap">
+      <input type="text" id="search-input" placeholder="Tìm kiếm địa điểm..." autocomplete="off" />
+      <div id="search-results"></div>
+    </div>
+    <button onclick="searchLocation()">Tìm kiếm</button>
+    <div class="sep"></div>
+    <input type="number" id="input-lat" placeholder="Lat" step="0.0001" />
+    <input type="number" id="input-lng" placeholder="Lng" step="0.0001" />
+    <button onclick="goToCoords()">Đến tọa độ</button>
+    <div class="sep"></div>
+    <button class="gray" onclick="goToMyLocation()">📍 Vị trí tôi</button>
+    <div class="sep"></div>
+    <button id="btn-save-xml" class="gray" onclick="saveXML()" title="Lưu toàn bộ dữ liệu ra file data.xml">💾 Lưu XML</button>
+    <label class="gray-btn" title="Mở file data.xml">
+      📂 Mở XML
+      <input type="file" id="import-xml" accept=".xml" style="display:none" onchange="importXML(event)" />
+    </label>
+  </div>
+
+  <div class="main">
+    <div id="map">
+      <div id="map-hint">Click vào bản đồ để thêm địa điểm</div>
+    </div>
+
+    <div id="sidebar">
+      <div id="sidebar-resizer"></div>
+      <div class="sidebar-header">
+        <span>Danh sách địa điểm</span>
+        <select id="group-by" title="Nhóm theo trường">
+          <option value="">☰ Danh sách</option>
+          <option value="area">📍 Khu vực</option>
+          <option value="direction">🧭 Hướng</option>
+          <option value="usage">🏠 Công năng</option>
+          <option value="structure">🏗️ Kết cấu</option>
+          <option value="color">🎨 Màu marker</option>
+          <option value="price">💰 Giá dự kiến</option>
+        </select>
+      </div>
+      <div id="location-list">
+        <div class="sidebar-empty">Chưa có địa điểm nào.<br/>Click lên bản đồ để thêm.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal thêm/sửa địa điểm -->
+  <div class="modal-overlay hidden" id="modal-overlay">
+    <div class="modal">
+      <div class="modal-header" id="modal-title">Thêm địa điểm</div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Tên địa điểm *</label>
+          <input type="text" id="field-name" placeholder="VD: Nhà tôi, Công ty, Quán cà phê..." />
+        </div>
+        <div class="form-group">
+          <label>Mô tả ngắn</label>
+          <input type="text" id="field-desc" placeholder="VD: Địa chỉ, loại địa điểm..." />
+        </div>
+        <div class="form-group">
+          <label>Ghi chú thêm</label>
+          <textarea id="field-note" placeholder="Thêm ghi chú tùy ý..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>Hình ảnh</label>
+          <div style="display:flex;gap:7px;align-items:center">
+            <input type="url" id="field-image" placeholder="Dán link ảnh hoặc chọn file..." style="flex:1" />
+            <label class="upload-btn" id="upload-btn-label" title="Chọn ảnh từ máy — tự động nén và lưu lên telegra.ph (miễn phí, không cần tài khoản)">
+              📁 Chọn ảnh
+              <input type="file" id="field-image-file" accept="image/*" style="display:none" />
+            </label>
+          </div>
+          <div id="upload-status"></div>
+          <div id="image-preview" style="display:none;margin-top:8px;position:relative">
+            <img id="preview-img" src="" alt="preview"
+              style="width:100%;max-height:160px;object-fit:cover;border-radius:8px;border:1px solid #ddd;display:block" />
+            <button onclick="clearImage()" title="Xóa ảnh"
+              style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.55);color:white;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:0.85rem;line-height:1">✕</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Đường link web</label>
+          <input type="url" id="field-link" placeholder="https://..." />
+        </div>
+        <div class="form-section-title">Thông tin đất</div>
+        <div class="form-row">
+          <div class="form-group" style="flex:1.2">
+            <label>Hướng</label>
+            <select id="field-direction">
+              <option value="">-- Chọn hướng --</option>
+              <option value="Đông">Đông</option>
+              <option value="Tây">Tây</option>
+              <option value="Nam">Nam</option>
+              <option value="Bắc">Bắc</option>
+              <option value="Đông Bắc">Đông Bắc</option>
+              <option value="Đông Nam">Đông Nam</option>
+              <option value="Tây Bắc">Tây Bắc</option>
+              <option value="Tây Nam">Tây Nam</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Diện tích (m²)</label>
+            <input type="number" id="field-acreage" placeholder="0" min="0" step="0.1" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Chiều ngang (m)</label>
+            <input type="number" id="field-width" placeholder="0" min="0" step="0.1" />
+          </div>
+          <div class="form-group">
+            <label>Chiều dài (m)</label>
+            <input type="number" id="field-length" placeholder="0" min="0" step="0.1" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Giá trị dự kiến</label>
+          <input type="text" id="field-price" placeholder="VD: 1.5 tỷ, 500 triệu..." />
+        </div>
+        <div class="form-section-title">Tài sản gắn liền trên đất</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>DT xây dựng (m²)</label>
+            <input type="number" id="field-buildarea" placeholder="0" min="0" step="0.1" />
+          </div>
+          <div class="form-group">
+            <label>DT sàn (m²)</label>
+            <input type="number" id="field-floorarea" placeholder="0" min="0" step="0.1" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Kết cấu</label>
+          <input type="text" id="field-structure" placeholder="VD: Nhà cấp 4, BTCT, Khung thép..." />
+        </div>
+        <div class="form-group">
+          <label>Công năng</label>
+          <input type="text" id="field-usage" placeholder="VD: Nhà ở, Thương mại, Đất nông nghiệp..." />
+        </div>
+        <div class="form-group">
+          <label>Màu marker</label>
+          <div class="color-picker" id="color-picker">
+            <div class="color-dot selected" data-color="#e53935" style="background:#e53935" title="Đỏ"></div>
+            <div class="color-dot" data-color="#1a73e8" style="background:#1a73e8" title="Xanh lam"></div>
+            <div class="color-dot" data-color="#43a047" style="background:#43a047" title="Xanh lá"></div>
+            <div class="color-dot" data-color="#f57c00" style="background:#f57c00" title="Cam"></div>
+            <div class="color-dot" data-color="#8e24aa" style="background:#8e24aa" title="Tím"></div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Tọa độ</label>
+          <div style="display:flex;gap:8px">
+            <div style="flex:1;position:relative">
+              <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:0.75rem;color:#888;pointer-events:none">Lat</span>
+              <input type="text" id="modal-lat" readonly
+                style="width:100%;padding-left:36px;background:#f8f9fa;color:#444;cursor:default" />
+            </div>
+            <div style="flex:1;position:relative">
+              <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:0.75rem;color:#888;pointer-events:none">Lng</span>
+              <input type="text" id="modal-lng" readonly
+                style="width:100%;padding-left:36px;background:#f8f9fa;color:#444;cursor:default" />
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" onclick="closeModal()">Hủy</button>
+        <button class="btn-save" onclick="saveLocation()">Lưu địa điểm</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // ── State ──
+    let locations = [];
+    let searchMarker = null;
+    let myLocationMarker = null;
+    let leafletMarkers = {};   // id → L.marker
+    let pendingLatLng = null;  // tọa độ đang chờ lưu
+    let editingId = null;      // id đang chỉnh sửa
+    let selectedColor = '#e53935';
+    let sidebarVisible = true;
+
+    // ── Map ──
+    const map = L.map('map').setView([21.0285, 105.8542], 13);
+
+    const layerStreet = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 19,
+    });
+
+    const layerSatellite = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: '© <a href="https://www.esri.com">Esri</a>, Maxar, Earthstar Geographics',
+      maxZoom: 19,
+    });
+
+    const layerHybrid = L.layerGroup([
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+      }),
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        opacity: 0.45, maxZoom: 19,
+        attribution: '© Esri © OpenStreetMap',
+      }),
+    ]);
+
+    layerStreet.addTo(map);
+
+    L.control.layers(
+      { '🗺️ Bản đồ': layerStreet, '🛰️ Vệ tinh': layerSatellite, '🛰️ Vệ tinh + đường': layerHybrid },
+      {},
+      { position: 'topright', collapsed: false }
+    ).addTo(map);
+
+    // Ẩn hint sau 4 giây
+    setTimeout(() => {
+      const hint = document.getElementById('map-hint');
+      if (hint) hint.style.opacity = '0';
+    }, 4000);
+
+    // Click map → mở modal thêm
+    map.on('click', (e) => {
+      pendingLatLng = e.latlng;
+      editingId = null;
+      openModal('Thêm địa điểm', { lat: e.latlng.lat, lng: e.latlng.lng });
+    });
+
+    // Chuột phải → menu Street View
+    map.on('contextmenu', (e) => {
+      const lat = e.latlng.lat;
+      const lng = e.latlng.lng;
+      const svUrl = `https://www.google.com/maps/@${lat},${lng},3a,75y,90t/data=!3m6!1e1`;
+      L.popup({ maxWidth: 230, closeButton: true })
+        .setLatLng(e.latlng)
+        .setContent(`
+          <div style="font-family:sans-serif;padding:2px 0">
+            <div style="font-size:0.72rem;color:#999;margin-bottom:8px">📍 ${lat.toFixed(5)}, ${lng.toFixed(5)}</div>
+            <a href="${svUrl}" target="_blank" rel="noopener"
+              style="display:block;background:#43a047;color:white;text-decoration:none;border-radius:8px;
+                     padding:7px 12px;font-size:0.85rem;text-align:center;font-family:inherit">
+              🚶 Xem Street View tại đây
+            </a>
+          </div>`)
+        .openOn(map);
+    });
+
+    // ── Icon ──
+    function createIcon(color) {
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="36" viewBox="0 0 28 36">
+        <path d="M14 0C6.27 0 0 6.27 0 14c0 9.625 14 22 14 22S28 23.625 28 14C28 6.27 21.73 0 14 0z" fill="${color}" stroke="white" stroke-width="2"/>
+        <circle cx="14" cy="14" r="5.5" fill="white"/>
+      </svg>`;
+      return L.divIcon({
+        className: '',
+        html: svg,
+        iconSize: [28, 36],
+        iconAnchor: [14, 36],
+        popupAnchor: [0, -36],
+      });
+    }
+
+    // ── Popup content ──
+    function makePopupHtml(loc) {
+      const image = loc.image ? `<img src="${esc(loc.image)}" alt="" style="width:100%;max-height:130px;object-fit:cover;border-radius:6px;margin-top:6px;display:block" onerror="this.style.display='none'" />` : '';
+      const desc = loc.desc ? `<div style="color:#555;font-size:0.82rem;margin-top:5px">${esc(loc.desc)}</div>` : '';
+      const note = loc.note ? `<div style="color:#777;font-size:0.78rem;margin-top:5px;padding-top:5px;border-top:1px solid #eee">${esc(loc.note)}</div>` : '';
+      const link = loc.link ? `<div style="margin-top:5px"><a href="${esc(loc.link)}" target="_blank" rel="noopener" style="color:#1a73e8;font-size:0.78rem;word-break:break-all">🔗 ${esc(loc.link)}</a></div>` : '';
+      const coords = `<div style="color:#aaa;font-size:0.72rem;margin-top:4px">📍 ${loc.lat.toFixed(5)}, ${loc.lng.toFixed(5)}</div>`;
+
+      const row = (label, val, unit='') => val
+        ? `<div style="display:flex;gap:4px;font-size:0.78rem"><span style="color:#888;min-width:90px">${label}:</span><b style="color:#333">${esc(val)}${unit ? ' ' + unit : ''}</b></div>`
+        : '';
+      const landRows = [
+        row('Hướng',      loc.direction),
+        row('Diện tích',  loc.acreage, 'm²'),
+        row('Chiều ngang',loc.width,   'm'),
+        row('Chiều dài',  loc.length,  'm'),
+        row('Giá trị',    loc.price),
+      ].filter(Boolean).join('');
+      const assetRows = [
+        row('DT xây dựng', loc.buildArea, 'm²'),
+        row('DT sàn',      loc.floorArea, 'm²'),
+        row('Kết cấu',     loc.structure),
+        row('Công năng',   loc.usage),
+      ].filter(Boolean).join('');
+
+      const landSection = landRows ? `
+        <div style="margin-top:7px;padding-top:5px;border-top:1px solid #eee">
+          <div style="font-size:0.68rem;font-weight:700;color:#1a73e8;margin-bottom:4px">THÔNG TIN ĐẤT</div>
+          ${landRows}
+        </div>` : '';
+      const assetSection = assetRows ? `
+        <div style="margin-top:7px;padding-top:5px;border-top:1px solid #eee">
+          <div style="font-size:0.68rem;font-weight:700;color:#1a73e8;margin-bottom:4px">TÀI SẢN TRÊN ĐẤT</div>
+          ${assetRows}
+        </div>` : '';
+
+      const svUrl = `https://www.google.com/maps/@${loc.lat},${loc.lng},3a,75y,90t/data=!3m6!1e1`;
+      return `<div style="font-family:sans-serif;min-width:200px;max-width:260px;padding:2px 0">
+        ${image}
+        <strong style="font-size:0.92rem;color:#202124;display:block;margin-top:${loc.image ? '6px' : '0'}">${esc(loc.name)}</strong>
+        ${desc}${note}${link}${coords}${landSection}${assetSection}
+        <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+          <button onclick="editLocation(${loc.id})" style="border:1px solid #1a73e8;background:#e8f0fe;color:#1a73e8;border-radius:6px;padding:3px 10px;font-size:0.78rem;cursor:pointer">Sửa</button>
+          <button onclick="deleteLocation(${loc.id})" style="border:1px solid #d93025;background:#fce8e6;color:#d93025;border-radius:6px;padding:3px 10px;font-size:0.78rem;cursor:pointer">Xóa</button>
+          <a href="${svUrl}" target="_blank" rel="noopener" style="border:1px solid #43a047;background:#e8f5e9;color:#2e7d32;border-radius:6px;padding:3px 10px;font-size:0.78rem;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:3px">🚶 Street View</a>
+        </div>
+      </div>`;
+    }
+
+    function esc(str) {
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ── Render markers on map ──
+    function renderMarkers() {
+      // Xóa marker cũ
+      Object.values(leafletMarkers).forEach(m => map.removeLayer(m));
+      leafletMarkers = {};
+      locations.forEach(loc => {
+        const m = L.marker([loc.lat, loc.lng], { icon: createIcon(loc.color), draggable: true }).addTo(map);
+        m.bindPopup(makePopupHtml(loc), { maxWidth: 260 });
+
+        m.on('dragend', (e) => {
+          const { lat, lng } = e.target.getLatLng();
+          loc.lat = lat;
+          loc.lng = lng;
+          m.setPopupContent(makePopupHtml(loc));
+          if (editingId === loc.id) {
+            document.getElementById('modal-lat').value = lat.toFixed(6);
+            document.getElementById('modal-lng').value = lng.toFixed(6);
+          }
+          renderSidebar();
+          autoDownloadXML();
+        });
+
+        leafletMarkers[loc.id] = m;
+      });
+    }
+
+    // ── Render sidebar list ──
+    let dragSrcId = null;
+    let didDrag = false;
+    let groupByField = '';
+    const collapsedGroups = new Set();
+    const COLOR_NAMES = {'#e53935':'Đỏ','#1a73e8':'Xanh lam','#43a047':'Xanh lá','#f57c00':'Cam','#8e24aa':'Tím'};
+
+    function createLocItem(loc) {
+      const item = document.createElement('div');
+      item.className = 'loc-item';
+      item.dataset.id = loc.id;
+      const canDrag = !groupByField;
+      item.draggable = canDrag;
+
+      item.innerHTML = `
+        ${canDrag ? '<span class="drag-handle" title="Kéo để sắp xếp">⠿</span>' : ''}
+        <div class="loc-pin" style="background:${loc.color}"></div>
+        <div class="loc-info">
+          <div class="loc-name">${esc(loc.name)}</div>
+          ${loc.desc ? `<div class="loc-desc">${esc(loc.desc)}</div>` : ''}
+          ${loc.price ? `<div class="loc-price">💰 ${esc(loc.price)}</div>` : ''}
+          <div class="loc-coords">${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}</div>
+        </div>
+        <div class="loc-actions">
+          <button class="btn-edit">Sửa</button>
+          <button class="btn-del">Xóa</button>
+        </div>`;
+
+      item.querySelector('.btn-edit').addEventListener('click', e => { e.stopPropagation(); editLocation(loc.id); });
+      item.querySelector('.btn-del').addEventListener('click', e => { e.stopPropagation(); deleteLocation(loc.id); });
+      item.addEventListener('click', () => { if (!didDrag) flyTo(loc.id); });
+
+      if (canDrag) {
+        item.addEventListener('dragstart', e => {
+          dragSrcId = loc.id;
+          didDrag = false;
+          setTimeout(() => item.classList.add('dragging'), 0);
+          e.dataTransfer.effectAllowed = 'move';
+        });
+        item.addEventListener('dragend', () => {
+          item.classList.remove('dragging');
+          document.querySelectorAll('.loc-item').forEach(el =>
+            el.classList.remove('drag-over-top', 'drag-over-bottom'));
+          setTimeout(() => { didDrag = false; }, 0);
+        });
+        item.addEventListener('dragover', e => {
+          e.preventDefault();
+          if (dragSrcId === loc.id) return;
+          didDrag = true;
+          const rect = item.getBoundingClientRect();
+          const isTop = e.clientY < rect.top + rect.height / 2;
+          document.querySelectorAll('.loc-item').forEach(el =>
+            el.classList.remove('drag-over-top', 'drag-over-bottom'));
+          item.classList.add(isTop ? 'drag-over-top' : 'drag-over-bottom');
+          e.dataTransfer.dropEffect = 'move';
+        });
+        item.addEventListener('dragleave', () => {
+          item.classList.remove('drag-over-top', 'drag-over-bottom');
+        });
+        item.addEventListener('drop', e => {
+          e.preventDefault();
+          item.classList.remove('drag-over-top', 'drag-over-bottom');
+          if (dragSrcId === loc.id) return;
+          const rect = item.getBoundingClientRect();
+          const isTop = e.clientY < rect.top + rect.height / 2;
+          const srcIdx = locations.findIndex(l => l.id === dragSrcId);
+          let tgtIdx = locations.findIndex(l => l.id === loc.id);
+          if (srcIdx === -1 || tgtIdx === -1) return;
+          const [moved] = locations.splice(srcIdx, 1);
+          tgtIdx = locations.findIndex(l => l.id === loc.id);
+          locations.splice(isTop ? tgtIdx : tgtIdx + 1, 0, moved);
+          save();
+        });
+      }
+      return item;
+    }
+
+    function renderSidebar() {
+      const list = document.getElementById('location-list');
+      document.getElementById('sidebar-count').textContent = locations.length;
+
+      if (!locations.length) {
+        list.innerHTML = '<div class="sidebar-empty">Chưa có địa điểm nào.<br/>Click lên bản đồ để thêm.</div>';
+        return;
+      }
+
+      list.innerHTML = '';
+
+      if (groupByField) {
+        const getKey = loc => {
+          switch (groupByField) {
+            case 'area':      return loc.area || '⏳ Đang tải địa chỉ...';
+            case 'direction': return loc.direction || '— Chưa có hướng —';
+            case 'usage':     return loc.usage     || '— Chưa phân loại —';
+            case 'structure': return loc.structure || '— Chưa có kết cấu —';
+            case 'color':     return COLOR_NAMES[loc.color] || loc.color;
+            case 'price':     return loc.price     || '— Chưa có giá —';
+            default:          return '— Khác —';
+          }
+        };
+        const groups = {}, order = [];
+        locations.forEach(loc => {
+          const key = getKey(loc);
+          if (!groups[key]) { groups[key] = []; order.push(key); }
+          groups[key].push(loc);
+        });
+        order.forEach(groupName => {
+          const isCollapsed = collapsedGroups.has(groupName);
+          const header = document.createElement('div');
+          header.className = 'group-header' + (isCollapsed ? ' collapsed' : '');
+          header.innerHTML = `
+            <span><i class="group-chevron">▼</i>${esc(groupName)}</span>
+            <span class="group-count">${groups[groupName].length}</span>`;
+          const body = document.createElement('div');
+          if (isCollapsed) body.style.display = 'none';
+          groups[groupName].forEach(loc => body.appendChild(createLocItem(loc)));
+          header.addEventListener('click', () => {
+            const nowCollapsed = !collapsedGroups.has(groupName);
+            nowCollapsed ? collapsedGroups.add(groupName) : collapsedGroups.delete(groupName);
+            header.classList.toggle('collapsed', nowCollapsed);
+            body.style.display = nowCollapsed ? 'none' : '';
+          });
+          list.appendChild(header);
+          list.appendChild(body);
+        });
+      } else {
+        locations.forEach(loc => list.appendChild(createLocItem(loc)));
+      }
+    }
+
+    // ── Nhóm theo khu vực ──
+    async function fetchArea(loc) {
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${loc.lat}&lon=${loc.lng}&format=json&accept-language=vi`
+        );
+        const data = await res.json();
+        const addr = data.address || {};
+        const district = addr.city_district || addr.county || addr.town || addr.village || addr.suburb || '';
+        const province = addr.state || addr.city || '';
+        loc.area = [district, province].filter(Boolean).join(', ') || 'Không xác định';
+      } catch {
+        loc.area = 'Không xác định';
+      }
+    }
+
+    let areaFetchRunning = false;
+    async function fetchMissingAreas() {
+      if (areaFetchRunning) return;
+      const missing = locations.filter(l => !l.area);
+      if (!missing.length) return;
+      areaFetchRunning = true;
+      for (let i = 0; i < missing.length; i++) {
+        await fetchArea(missing[i]);
+        renderSidebar();
+        if (i < missing.length - 1) await new Promise(r => setTimeout(r, 1100));
+      }
+      autoDownloadXML();
+      areaFetchRunning = false;
+    }
+
+    document.getElementById('group-by').addEventListener('change', (e) => {
+      groupByField = e.target.value;
+      collapsedGroups.clear();
+      e.target.classList.toggle('active', !!groupByField);
+      renderSidebar();
+      if (groupByField === 'area') fetchMissingAreas();
+    });
+
+    function save() {
+      renderMarkers();
+      renderSidebar();
+      autoDownloadXML();
+    }
+
+    // ── XML utilities ──
+    function xmlEsc(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+    }
+
+    function generateXML() {
+      const rows = locations.map(loc => `  <location>
+    <id>${loc.id}</id>
+    <lat>${loc.lat}</lat>
+    <lng>${loc.lng}</lng>
+    <name>${xmlEsc(loc.name)}</name>
+    <desc>${xmlEsc(loc.desc)}</desc>
+    <note>${xmlEsc(loc.note)}</note>
+    <image>${xmlEsc(loc.image)}</image>
+    <link>${xmlEsc(loc.link)}</link>
+    <color>${xmlEsc(loc.color)}</color>
+    <area>${xmlEsc(loc.area)}</area>
+    <direction>${xmlEsc(loc.direction)}</direction>
+    <acreage>${xmlEsc(loc.acreage)}</acreage>
+    <width>${xmlEsc(loc.width)}</width>
+    <length>${xmlEsc(loc.length)}</length>
+    <price>${xmlEsc(loc.price)}</price>
+    <buildArea>${xmlEsc(loc.buildArea)}</buildArea>
+    <floorArea>${xmlEsc(loc.floorArea)}</floorArea>
+    <structure>${xmlEsc(loc.structure)}</structure>
+    <usage>${xmlEsc(loc.usage)}</usage>
+  </location>`).join('\n');
+      return `<?xml version="1.0" encoding="UTF-8"?>\n<locations>\n${rows}\n</locations>`;
+    }
+
+    function parseXML(xmlText) {
+      const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
+      if (doc.querySelector('parsererror')) throw new Error('XML không hợp lệ');
+      return Array.from(doc.querySelectorAll('location')).map(el => {
+        const get = tag => el.querySelector(tag)?.textContent?.trim() || '';
+        return {
+          id: parseInt(get('id')) || Date.now(),
+          lat: parseFloat(get('lat')),
+          lng: parseFloat(get('lng')),
+          name: get('name'),
+          desc: get('desc'),
+          note: get('note'),
+          image:     get('image'),
+          link:      get('link'),
+          color:     get('color') || '#e53935',
+          area:      get('area'),
+          direction: get('direction'),
+          acreage:   get('acreage'),
+          width:     get('width'),
+          length:    get('length'),
+          price:     get('price'),
+          buildArea: get('buildArea'),
+          floorArea: get('floorArea'),
+          structure: get('structure'),
+          usage:     get('usage'),
+        };
+      }).filter(loc => !isNaN(loc.lat) && !isNaN(loc.lng) && loc.name);
+    }
+
+    // File handle để ghi thẳng (File System Access API)
+    let savedFileHandle = null;
+
+    function xmlBlob() {
+      return new Blob([generateXML()], { type: 'text/xml;charset=utf-8' });
+    }
+
+    function fallbackDownload(blob) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'data.xml'; a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    async function writeToHandle(handle, blob) {
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+    }
+
+    // Lưu thủ công — hiện picker chọn đường dẫn (Chrome/Edge) hoặc tải xuống (fallback)
+    async function saveXML() {
+      const blob = xmlBlob();
+      if (window.showSaveFilePicker) {
+        try {
+          savedFileHandle = await window.showSaveFilePicker({
+            suggestedName: 'data.xml',
+            types: [{ description: 'File XML', accept: { 'text/xml': ['.xml'], 'application/xml': ['.xml'] } }],
+          });
+          await writeToHandle(savedFileHandle, blob);
+          updateSaveBtn();
+        } catch (e) {
+          if (e.name !== 'AbortError') fallbackDownload(blob);
+        }
+      } else {
+        fallbackDownload(blob);
+      }
+    }
+
+    function updateSaveBtn() {
+      const btn = document.getElementById('btn-save-xml');
+      if (!btn) return;
+      if (savedFileHandle) {
+        btn.title = `Đang lưu vào: ${savedFileHandle.name}`;
+        btn.textContent = '💾 ' + savedFileHandle.name;
+      } else {
+        btn.title = 'Lưu toàn bộ dữ liệu ra file data.xml';
+        btn.textContent = '💾 Lưu XML';
+      }
+    }
+
+    // Auto-save sau khi thay đổi (debounce 800ms)
+    let autoDownloadTimer;
+    function autoDownloadXML() {
+      clearTimeout(autoDownloadTimer);
+      autoDownloadTimer = setTimeout(async () => {
+        const blob = xmlBlob();
+        if (savedFileHandle) {
+          try {
+            await writeToHandle(savedFileHandle, blob);
+            return;
+          } catch {
+            savedFileHandle = null;
+            updateSaveBtn();
+          }
+        }
+        fallbackDownload(blob);
+      }, 800);
+    }
+
+    // Nhập file XML
+    function importXML(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          locations = parseXML(e.target.result);
+          renderMarkers();
+          renderSidebar();
+        } catch (err) {
+          alert('Lỗi đọc file XML: ' + err.message);
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = '';
+    }
+
+    // Tự động tải data.xml khi mở trang (cần chạy qua HTTP server)
+    async function loadDataXML() {
+      try {
+        const res = await fetch('./data.xml');
+        if (!res.ok) return;
+        const text = await res.text();
+        locations = parseXML(text);
+        renderMarkers();
+        renderSidebar();
+      } catch { /* file chưa tồn tại hoặc chạy từ file:// */ }
+    }
+
+    // ── Modal ──
+    function openModal(title, data = {}) {
+      selectedColor = data.color || '#e53935';
+      document.getElementById('modal-title').textContent = title;
+      const set = (id, val) => { document.getElementById(id).value = val || ''; };
+      set('field-name',      data.name);
+      set('field-desc',      data.desc);
+      set('field-note',      data.note);
+      set('field-image',     data.image);
+      set('field-link',      data.link);
+      set('field-direction', data.direction);
+      set('field-acreage',   data.acreage);
+      set('field-width',     data.width);
+      set('field-length',    data.length);
+      set('field-price',     data.price);
+      set('field-buildarea', data.buildArea);
+      set('field-floorarea', data.floorArea);
+      set('field-structure', data.structure);
+      set('field-usage',     data.usage);
+      document.getElementById('modal-lat').value = parseFloat(data.lat || 0).toFixed(6);
+      document.getElementById('modal-lng').value = parseFloat(data.lng || 0).toFixed(6);
+      document.querySelectorAll('.color-dot').forEach(d => {
+        d.classList.toggle('selected', d.dataset.color === selectedColor);
+      });
+      setImagePreview(data.image || '');
+      document.getElementById('modal-overlay').classList.remove('hidden');
+      setTimeout(() => document.getElementById('field-name').focus(), 50);
+    }
+
+    // ── Image upload helpers ──
+    function fmtSize(bytes) {
+      return bytes >= 1048576 ? (bytes / 1048576).toFixed(1) + ' MB' : (bytes / 1024).toFixed(0) + ' KB';
+    }
+
+    function setUploadStatus(type, msg) {
+      const el = document.getElementById('upload-status');
+      el.className = 'st-' + type;
+      el.style.display = 'block';
+      el.textContent = msg;
+    }
+
+    function clearUploadStatus() {
+      const el = document.getElementById('upload-status');
+      el.style.display = 'none';
+      el.className = '';
+      el.textContent = '';
+    }
+
+    async function compressImage(file, maxDim = 1200, quality = 0.75) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        const objUrl = URL.createObjectURL(file);
+        img.onload = () => {
+          URL.revokeObjectURL(objUrl);
+          let w = img.naturalWidth, h = img.naturalHeight;
+          if (w > maxDim || h > maxDim) {
+            if (w >= h) { h = Math.round(h * maxDim / w); w = maxDim; }
+            else        { w = Math.round(w * maxDim / h); h = maxDim; }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, w, h);
+          ctx.drawImage(img, 0, 0, w, h);
+          canvas.toBlob(
+            blob => blob ? resolve(blob) : reject(new Error('Không thể nén ảnh')),
+            'image/jpeg', quality
+          );
+        };
+        img.onerror = () => { URL.revokeObjectURL(objUrl); reject(new Error('Không đọc được file ảnh')); };
+        img.src = objUrl;
+      });
+    }
+
+    async function uploadImage(blob) {
+      const form = new FormData();
+      form.append('file', blob, 'image.jpg');
+      const res = await fetch('https://telegra.ph/upload', { method: 'POST', body: form });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      if (!Array.isArray(data) || !data[0]?.src) throw new Error('Phản hồi không hợp lệ');
+      return 'https://telegra.ph' + data[0].src;
+    }
+
+    function setImagePreview(url) {
+      const preview = document.getElementById('image-preview');
+      const img = document.getElementById('preview-img');
+      if (url) {
+        img.src = url;
+        img.onerror = () => { preview.style.display = 'none'; };
+        img.onload = () => { preview.style.display = 'block'; };
+      } else {
+        preview.style.display = 'none';
+      }
+    }
+
+    function closeModal() {
+      document.getElementById('modal-overlay').classList.add('hidden');
+      clearUploadStatus();
+      pendingLatLng = null;
+      editingId = null;
+    }
+
+    function saveLocation() {
+      const name = document.getElementById('field-name').value.trim();
+      if (!name) { document.getElementById('field-name').focus(); return; }
+      const get = id => document.getElementById(id).value.trim();
+      const fields = {
+        name,
+        desc:      get('field-desc'),
+        note:      get('field-note'),
+        image:     get('field-image'),
+        link:      get('field-link'),
+        direction: get('field-direction'),
+        acreage:   get('field-acreage'),
+        width:     get('field-width'),
+        length:    get('field-length'),
+        price:     get('field-price'),
+        buildArea: get('field-buildarea'),
+        floorArea: get('field-floorarea'),
+        structure: get('field-structure'),
+        usage:     get('field-usage'),
+        color:     selectedColor,
+      };
+
+      if (editingId !== null) {
+        const loc = locations.find(l => l.id === editingId);
+        if (loc) Object.assign(loc, fields);
+      } else {
+        const newLoc = {
+          id: Date.now(),
+          lat: pendingLatLng.lat,
+          lng: pendingLatLng.lng,
+          area: '',
+          ...fields,
+        };
+        locations.push(newLoc);
+        fetchArea(newLoc).then(() => { renderSidebar(); autoDownloadXML(); });
+      }
+      save();
+      closeModal();
+    }
+
+    // ── Actions ──
+    function flyTo(id) {
+      const loc = locations.find(l => l.id === id);
+      if (!loc) return;
+      map.flyTo([loc.lat, loc.lng], 16, { duration: 0.8 });
+      setTimeout(() => leafletMarkers[id]?.openPopup(), 850);
+    }
+
+    function editLocation(id) {
+      const loc = locations.find(l => l.id === id);
+      if (!loc) return;
+      editingId = id;
+      pendingLatLng = { lat: loc.lat, lng: loc.lng };
+      Object.values(leafletMarkers).forEach(m => m.closePopup());
+      openModal('Chỉnh sửa địa điểm', loc);
+    }
+
+    function deleteLocation(id) {
+      if (!confirm('Xóa địa điểm này?')) return;
+      locations = locations.filter(l => l.id !== id);
+      save();
+    }
+
+    // Preview khi nhập URL
+    document.getElementById('field-image').addEventListener('input', (e) => {
+      setImagePreview(e.target.value.trim());
+    });
+
+    function blobToBase64(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    // Upload ảnh từ máy → nén Canvas → thử upload telegra.ph → fallback base64
+    document.getElementById('field-image-file').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      e.target.value = '';
+      const btn = document.getElementById('upload-btn-label');
+      btn.classList.add('uploading');
+      try {
+        setUploadStatus('loading', '⏳ Đang nén ảnh...');
+        const compressed = await compressImage(file);
+        const saved = ((1 - compressed.size / file.size) * 100).toFixed(0);
+        const sizeLabel = `${fmtSize(file.size)} → ${fmtSize(compressed.size)} (tiết kiệm ${saved}%)`;
+
+        let url;
+        try {
+          setUploadStatus('loading', `⏳ Đang tải lên (${fmtSize(compressed.size)})...`);
+          url = await uploadImage(compressed);
+          setUploadStatus('success', `✅ ${sizeLabel} · telegra.ph`);
+        } catch {
+          // CORS / mạng → lưu base64 trong XML
+          setUploadStatus('loading', '⚠️ Không kết nối được, đang lưu trực tiếp vào file...');
+          url = await blobToBase64(compressed);
+          setUploadStatus('success', `✅ ${sizeLabel} · lưu trong XML (offline)`);
+        }
+
+        document.getElementById('field-image').value = url;
+        setImagePreview(url);
+      } catch (err) {
+        setUploadStatus('error', `❌ ${err.message}`);
+      } finally {
+        btn.classList.remove('uploading');
+      }
+    });
+
+    function clearImage() {
+      document.getElementById('field-image').value = '';
+      setImagePreview('');
+      clearUploadStatus();
+    }
+
+    // ── Color picker ──
+    document.querySelectorAll('.color-dot').forEach(dot => {
+      dot.addEventListener('click', () => {
+        selectedColor = dot.dataset.color;
+        document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('selected'));
+        dot.classList.add('selected');
+      });
+    });
+
+    // Đóng modal khi click overlay
+    document.getElementById('modal-overlay').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('modal-overlay')) closeModal();
+    });
+
+    // Enter để lưu
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeModal();
+    });
+
+    // ── Sidebar toggle ──
+    function toggleSidebar() {
+      sidebarVisible = !sidebarVisible;
+      document.getElementById('sidebar').classList.toggle('hidden', !sidebarVisible);
+    }
+
+    // ── Search (Nominatim) ──
+    const searchInput = document.getElementById('search-input');
+    const searchResults = document.getElementById('search-results');
+    let searchTimeout;
+
+    searchInput.addEventListener('input', () => {
+      clearTimeout(searchTimeout);
+      const q = searchInput.value.trim();
+      if (q.length < 3) {
+        searchResults.style.display = 'none';
+        if (!q && searchMarker) { map.removeLayer(searchMarker); searchMarker = null; }
+        return;
+      }
+      searchTimeout = setTimeout(() => fetchSuggestions(q), 400);
+    });
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') searchLocation();
+      if (e.key === 'Escape') searchResults.style.display = 'none';
+    });
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.search-wrap')) searchResults.style.display = 'none';
+    });
+
+    async function fetchSuggestions(query) {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&accept-language=vi`);
+        const data = await res.json();
+        searchResults.innerHTML = '';
+        if (!data.length) { searchResults.style.display = 'none'; return; }
+        data.forEach(item => {
+          const div = document.createElement('div');
+          div.className = 'result-item';
+          div.textContent = item.display_name;
+          div.onclick = () => selectResult(item);
+          searchResults.appendChild(div);
+        });
+        searchResults.style.display = 'block';
+      } catch { searchResults.style.display = 'none'; }
+    }
+
+    function createSearchIcon() {
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="42" viewBox="0 0 32 42">
+        <path d="M16 0C7.16 0 0 7.16 0 16c0 11 16 26 16 26S32 27 32 16C32 7.16 24.84 0 16 0z"
+          fill="#0d47a1" stroke="white" stroke-width="2"/>
+        <circle cx="16" cy="16" r="6" fill="white"/>
+        <circle cx="16" cy="16" r="3" fill="#0d47a1"/>
+      </svg>`;
+      return L.divIcon({
+        className: '',
+        html: svg,
+        iconSize: [32, 42],
+        iconAnchor: [16, 42],
+        popupAnchor: [0, -44],
+      });
+    }
+
+    function selectResult(item) {
+      const lat = parseFloat(item.lat), lng = parseFloat(item.lon);
+      const name = item.display_name.split(',')[0];
+      map.setView([lat, lng], 15);
+      searchInput.value = name;
+      searchResults.style.display = 'none';
+
+      // Xóa marker tìm kiếm cũ
+      if (searchMarker) { map.removeLayer(searchMarker); searchMarker = null; }
+
+      // Thêm marker kết quả tìm kiếm
+      searchMarker = L.marker([lat, lng], { icon: createSearchIcon() }).addTo(map);
+      searchMarker.bindPopup(`
+        <div style="font-family:sans-serif;min-width:180px;padding:2px 0">
+          <div style="font-size:0.78rem;color:#0d47a1;font-weight:600;margin-bottom:3px">🔍 Kết quả tìm kiếm</div>
+          <strong style="font-size:0.92rem;color:#202124">${esc(name)}</strong>
+          <div style="color:#666;font-size:0.78rem;margin-top:3px">${esc(item.display_name)}</div>
+          <div style="color:#aaa;font-size:0.72rem;margin-top:4px">📍 ${lat.toFixed(5)}, ${lng.toFixed(5)}</div>
+          <button onclick="saveSearchResult(${lat},${lng},'${esc(name).replace(/'/g,'&#39;')}')"
+            style="margin-top:8px;width:100%;background:#1a73e8;color:white;border:none;border-radius:6px;
+                   padding:6px 0;font-size:0.82rem;cursor:pointer;font-family:inherit">
+            + Lưu địa điểm này
+          </button>
+        </div>
+      `, { maxWidth: 260 }).openPopup();
+    }
+
+    function saveSearchResult(lat, lng, name) {
+      if (searchMarker) searchMarker.closePopup();
+      pendingLatLng = { lat, lng };
+      editingId = null;
+      openModal('Thêm địa điểm', { lat, lng, name });
+    }
+
+    async function searchLocation() {
+      const query = searchInput.value.trim();
+      if (!query) return;
+      searchResults.style.display = 'none';
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1&accept-language=vi`);
+        const data = await res.json();
+        if (data.length) selectResult(data[0]);
+        else alert('Không tìm thấy địa điểm: ' + query);
+      } catch { alert('Lỗi kết nối. Vui lòng thử lại.'); }
+    }
+
+    // ── Tọa độ ──
+    function goToCoords() {
+      const lat = parseFloat(document.getElementById('input-lat').value);
+      const lng = parseFloat(document.getElementById('input-lng').value);
+      if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+        alert('Tọa độ không hợp lệ.\nLat: -90 đến 90 | Lng: -180 đến 180');
+        return;
+      }
+      map.setView([lat, lng], 15);
+    }
+
+    // ── Vị trí tôi ──
+    function goToMyLocation() {
+      if (!navigator.geolocation) { alert('Trình duyệt không hỗ trợ định vị.'); return; }
+      navigator.geolocation.getCurrentPosition(
+        ({ coords }) => {
+          const lat = coords.latitude, lng = coords.longitude;
+          map.setView([lat, lng], 16);
+          if (myLocationMarker) map.removeLayer(myLocationMarker);
+          const icon = L.divIcon({
+            className: '',
+            html: '<div class="my-location-icon"><div class="ring"></div><div class="dot"></div></div>',
+            iconSize: [18, 18],
+            iconAnchor: [9, 9],
+          });
+          myLocationMarker = L.marker([lat, lng], { icon, zIndexOffset: 1000 })
+            .addTo(map)
+            .bindPopup(`<b>Vị trí của bạn</b><br><span style="font-size:0.8rem;color:#666">${lat.toFixed(5)}, ${lng.toFixed(5)}</span>`)
+            .openPopup();
+        },
+        () => alert('Không thể lấy vị trí. Vui lòng cho phép quyền truy cập.')
+      );
+    }
+
+    // ── Sidebar resize ──
+    (function () {
+      const resizer = document.getElementById('sidebar-resizer');
+      const sidebar = document.getElementById('sidebar');
+      const MIN_W = 180, MAX_W = 560;
+      let startX, startW;
+
+      resizer.addEventListener('mousedown', (e) => {
+        startX = e.clientX;
+        startW = sidebar.offsetWidth;
+        sidebar.classList.add('resizing');
+        resizer.classList.add('dragging');
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        e.preventDefault();
+      });
+
+      document.addEventListener('mousemove', (e) => {
+        if (!sidebar.classList.contains('resizing')) return;
+        const delta = startX - e.clientX;
+        const newW = Math.min(MAX_W, Math.max(MIN_W, startW + delta));
+        sidebar.style.width = newW + 'px';
+      });
+
+      document.addEventListener('mouseup', () => {
+        if (!sidebar.classList.contains('resizing')) return;
+        sidebar.classList.remove('resizing');
+        resizer.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      });
+
+      // Touch support
+      resizer.addEventListener('touchstart', (e) => {
+        startX = e.touches[0].clientX;
+        startW = sidebar.offsetWidth;
+        sidebar.classList.add('resizing');
+        e.preventDefault();
+      }, { passive: false });
+
+      document.addEventListener('touchmove', (e) => {
+        if (!sidebar.classList.contains('resizing')) return;
+        const delta = startX - e.touches[0].clientX;
+        const newW = Math.min(MAX_W, Math.max(MIN_W, startW + delta));
+        sidebar.style.width = newW + 'px';
+      }, { passive: false });
+
+      document.addEventListener('touchend', () => {
+        sidebar.classList.remove('resizing');
+      });
+    })();
+
+    // ── Khởi tạo ──
+    loadDataXML();
+  </script>
+
+  <!-- Đăng ký Service Worker (PWA offline) -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>
