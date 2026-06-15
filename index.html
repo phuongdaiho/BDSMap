@@ -303,6 +303,14 @@
       font-weight: 600;
       margin-top: 2px;
     }
+    .loc-phone {
+      font-size: 0.75rem;
+      margin-top: 2px;
+    }
+    .loc-phone a {
+      color: #2e7d32;
+      text-decoration: none;
+    }
 
     .loc-actions {
       display: flex;
@@ -553,15 +561,27 @@
           </div>
           <div id="upload-status"></div>
           <div id="image-preview" style="display:none;margin-top:8px;position:relative">
-            <img id="preview-img" src="" alt="preview"
+            <img id="preview-img" src="" alt="preview" crossorigin="anonymous"
               style="width:100%;max-height:160px;object-fit:cover;border-radius:8px;border:1px solid #ddd;display:block" />
             <button onclick="clearImage()" title="Xóa ảnh"
               style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.55);color:white;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:0.85rem;line-height:1">✕</button>
+            <button id="extract-btn" onclick="extractInfoFromImage()" title="Nhận diện chữ trong ảnh và tự điền thông tin BĐS"
+              style="position:absolute;bottom:6px;left:6px;background:rgba(26,115,232,0.92);color:white;border:none;border-radius:12px;padding:4px 10px;cursor:pointer;font-size:0.76rem;white-space:nowrap;font-family:inherit">
+              🔍 Trích xuất thông tin
+            </button>
           </div>
+          <div id="extract-status" style="display:none;margin-top:6px;font-size:0.79rem;padding:7px 10px;border-radius:6px;line-height:1.6;border:1px solid transparent"></div>
         </div>
         <div class="form-group">
           <label>Đường link web</label>
           <input type="url" id="field-link" placeholder="https://..." />
+        </div>
+        <div class="form-group">
+          <label>Số điện thoại liên hệ</label>
+          <div style="display:flex;gap:7px;align-items:center">
+            <input type="tel" id="field-phone" placeholder="VD: 0912 345 678" style="flex:1" />
+            <a id="call-btn-modal" href="tel:" style="display:none;background:#43a047;color:white;border-radius:8px;padding:7px 12px;font-size:0.85rem;text-decoration:none;white-space:nowrap">📞 Gọi</a>
+          </div>
         </div>
         <div class="form-section-title">Thông tin đất</div>
         <div class="form-row">
@@ -761,6 +781,7 @@
       const desc = loc.desc ? `<div style="color:#555;font-size:0.82rem;margin-top:5px">${esc(loc.desc)}</div>` : '';
       const note = loc.note ? `<div style="color:#777;font-size:0.78rem;margin-top:5px;padding-top:5px;border-top:1px solid #eee">${esc(loc.note)}</div>` : '';
       const link = loc.link ? `<div style="margin-top:5px"><a href="${esc(loc.link)}" target="_blank" rel="noopener" style="color:#1a73e8;font-size:0.78rem;word-break:break-all">🔗 ${esc(loc.link)}</a></div>` : '';
+      const phone = loc.phone ? `<div style="margin-top:5px;display:flex;align-items:center;gap:6px"><span style="color:#333;font-size:0.82rem">📞 ${esc(loc.phone)}</span><a href="tel:${esc(loc.phone)}" style="background:#43a047;color:white;border-radius:6px;padding:2px 9px;font-size:0.75rem;text-decoration:none">Gọi</a></div>` : '';
       const coords = `<div style="color:#aaa;font-size:0.72rem;margin-top:4px">📍 ${loc.lat.toFixed(5)}, ${loc.lng.toFixed(5)}</div>`;
 
       const row = (label, val, unit='') => val
@@ -795,7 +816,7 @@
       return `<div style="font-family:sans-serif;min-width:200px;max-width:260px;padding:2px 0">
         ${image}
         <strong style="font-size:0.92rem;color:#202124;display:block;margin-top:${loc.image ? '6px' : '0'}">${esc(loc.name)}</strong>
-        ${desc}${note}${link}${coords}${landSection}${assetSection}
+        ${desc}${note}${link}${phone}${coords}${landSection}${assetSection}
         <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
           <button onclick="editLocation(${loc.id})" style="border:1px solid #1a73e8;background:#e8f0fe;color:#1a73e8;border-radius:6px;padding:3px 10px;font-size:0.78rem;cursor:pointer">Sửa</button>
           <button onclick="deleteLocation(${loc.id})" style="border:1px solid #d93025;background:#fce8e6;color:#d93025;border-radius:6px;padding:3px 10px;font-size:0.78rem;cursor:pointer">Xóa</button>
@@ -855,6 +876,7 @@
           <div class="loc-name">${esc(loc.name)}</div>
           ${loc.desc ? `<div class="loc-desc">${esc(loc.desc)}</div>` : ''}
           ${loc.price ? `<div class="loc-price">💰 ${esc(loc.price)}</div>` : ''}
+          ${loc.phone ? `<div class="loc-phone"><a href="tel:${esc(loc.phone)}" onclick="event.stopPropagation()">📞 ${esc(loc.phone)}</a></div>` : ''}
           <div class="loc-coords">${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}</div>
         </div>
         <div class="loc-actions">
@@ -1040,6 +1062,7 @@
     <floorArea>${xmlEsc(loc.floorArea)}</floorArea>
     <structure>${xmlEsc(loc.structure)}</structure>
     <usage>${xmlEsc(loc.usage)}</usage>
+    <phone>${xmlEsc(loc.phone)}</phone>
   </location>`).join('\n');
       return `<?xml version="1.0" encoding="UTF-8"?>\n<locations>\n${rows}\n</locations>`;
     }
@@ -1069,6 +1092,7 @@
           floorArea: get('floorArea'),
           structure: get('structure'),
           usage:     get('usage'),
+          phone:     get('phone'),
         };
       }).filter(loc => !isNaN(loc.lat) && !isNaN(loc.lng) && loc.name);
     }
@@ -1193,6 +1217,10 @@
       set('field-floorarea', data.floorArea);
       set('field-structure', data.structure);
       set('field-usage',     data.usage);
+      set('field-phone',     data.phone);
+      const phoneBtn = document.getElementById('call-btn-modal');
+      if (data.phone) { phoneBtn.href = 'tel:' + data.phone; phoneBtn.style.display = 'inline-block'; }
+      else phoneBtn.style.display = 'none';
       document.getElementById('modal-lat').value = parseFloat(data.lat || 0).toFixed(6);
       document.getElementById('modal-lng').value = parseFloat(data.lng || 0).toFixed(6);
       document.querySelectorAll('.color-dot').forEach(d => {
@@ -1297,6 +1325,7 @@
         floorArea: get('field-floorarea'),
         structure: get('field-structure'),
         usage:     get('field-usage'),
+        phone:     get('field-phone'),
         color:     selectedColor,
       };
 
@@ -1346,6 +1375,14 @@
       setImagePreview(e.target.value.trim());
     });
 
+    // Cập nhật nút gọi khi nhập số điện thoại
+    document.getElementById('field-phone').addEventListener('input', (e) => {
+      const phone = e.target.value.trim();
+      const btn = document.getElementById('call-btn-modal');
+      if (phone) { btn.href = 'tel:' + phone; btn.style.display = 'inline-block'; }
+      else btn.style.display = 'none';
+    });
+
     function blobToBase64(blob) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -1393,6 +1430,194 @@
       document.getElementById('field-image').value = '';
       setImagePreview('');
       clearUploadStatus();
+      document.getElementById('extract-status').style.display = 'none';
+    }
+
+    // ── OCR / Trích xuất thông tin từ ảnh ──
+    let ocrWorker = null;
+
+    async function ensureOCR() {
+      if (!window.Tesseract) {
+        await new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = 'https://unpkg.com/tesseract.js@5/dist/tesseract.min.js';
+          s.onload = resolve; s.onerror = reject;
+          document.head.appendChild(s);
+        });
+      }
+      if (!ocrWorker) {
+        ocrWorker = await Tesseract.createWorker(['vie', 'eng'], 1);
+      }
+      return ocrWorker;
+    }
+
+    async function extractInfoFromImage() {
+      const imgUrl = document.getElementById('field-image').value.trim();
+      if (!imgUrl) return;
+      const btn = document.getElementById('extract-btn');
+      const statusEl = document.getElementById('extract-status');
+
+      function showOcrStatus(type, msg) {
+        statusEl.style.display = 'block';
+        const colors = { info: ['#e8f0fe','#1a73e8','#c5d8fd'], success: ['#e8f5e9','#2e7d32','#a5d6a7'], warn: ['#fff8e1','#e65100','#ffe082'], error: ['#fdecea','#c62828','#ffcdd2'] };
+        const [bg, fg, bd] = colors[type] || colors.info;
+        Object.assign(statusEl.style, { background: bg, color: fg, borderColor: bd });
+        statusEl.innerHTML = msg;
+      }
+
+      btn.disabled = true; btn.textContent = '⏳...';
+      try {
+        showOcrStatus('info', '⏳ Đang tải Tesseract (lần đầu ~1MB)...');
+        const worker = await ensureOCR();
+        showOcrStatus('info', '⏳ Đang nhận diện chữ trong ảnh...');
+        const { data: { text } } = await worker.recognize(imgUrl);
+        if (!text.trim()) { showOcrStatus('warn', '⚠️ Không nhận diện được chữ trong ảnh.'); return; }
+        const result = parseRealEstateText(text);
+        applyExtractedInfo(result, showOcrStatus);
+      } catch (err) {
+        showOcrStatus('error', `❌ Lỗi OCR: ${err.message || err}`);
+      } finally {
+        btn.disabled = false; btn.textContent = '🔍 Trích xuất thông tin';
+      }
+    }
+
+    function parsePrice(t) {
+      // Nhận cả "tỷ/tỉ" có dấu lẫn "ty" (OCR bỏ dấu) — yêu cầu có chữ số phía trước
+      const TY   = '(?:tỷ|tỉ|ty\\b)';
+      const TIEU = '(?:triệu|tr\\b)';
+      const NUM  = '[\\d.,]+';
+
+      function fmtTy(n) {
+        // Normalize: bỏ trailing zeros (4.50 → 4.5, 4.00 → 4)
+        return parseFloat(n.toFixed(4)).toString() + ' tỷ';
+      }
+      function n(s) { return parseFloat(s.replace(',', '.')); }
+
+      // "X tỷ Y triệu" → X + Y/1000 tỷ  (vd: "4 tỷ 500 triệu" → 4.5 tỷ, "7 ty 500 tr" → 7.5 tỷ)
+      const m1 = t.match(new RegExp(`(${NUM})\\s*${TY}\\s+(${NUM})\\s*${TIEU}`, 'i'));
+      if (m1) return fmtTy(n(m1[1]) + n(m1[2]) / 1000);
+
+      // "X tỷ rưỡi" → X.5 tỷ
+      const m2 = t.match(new RegExp(`(${NUM})\\s*${TY}\\s+rưỡi`, 'i'));
+      if (m2) return fmtTy(n(m2[1]) + 0.5);
+
+      // "X tỷ Y" shorthand (1–3 chữ số, không kèm đơn vị): "7 ty 500" → 7.5, "4 tỷ 5" → 4.5
+      const m3 = t.match(new RegExp(`(${NUM})\\s*${TY}\\s+(\\d{1,3})(?!\\d)`, 'i'));
+      if (m3) {
+        const ty = n(m3[1]);
+        const d = parseInt(m3[2]);
+        const tr = m3[2].length === 1 ? d * 100 : d;
+        return fmtTy(ty + tr / 1000);
+      }
+
+      // "4.5 tỷ" hoặc "4.500 tỷ" (dấu chấm = thập phân) → normalize qua parseFloat
+      const m4 = t.match(new RegExp(`gi[aá][:\\s]*(${NUM})\\s*${TY}`, 'i'))
+               || t.match(new RegExp(`(${NUM})\\s*${TY}`, 'i'));
+      if (m4) return fmtTy(n(m4[1]));
+
+      // "X triệu" (loại trừ "triệu/m²")
+      const m5 = t.match(new RegExp(`gi[aá][:\\s]*(${NUM})\\s*${TIEU}`, 'i'))
+               || t.match(new RegExp(`(${NUM})\\s*${TIEU}(?!\\s*\\/?\\s*m)`, 'i'));
+      if (m5) return n(m5[1]) + ' triệu';
+
+      return null;
+    }
+
+    function parseRealEstateText(text) {
+      const t = text.replace(/\n/g, ' ');
+      const result = {};
+
+      // Hướng
+      const dirM = t.match(/h[uư][ớo]ng\s*(đông\s*bắc|đông\s*nam|tây\s*bắc|tây\s*nam|đông|tây|nam|bắc)/i);
+      if (dirM) {
+        const map = { 'đông bắc':'Đông Bắc','đông nam':'Đông Nam','tây bắc':'Tây Bắc','tây nam':'Tây Nam','đông':'Đông','tây':'Tây','nam':'Nam','bắc':'Bắc' };
+        result.direction = map[dirM[1].replace(/\s+/,' ').toLowerCase().trim()];
+      }
+
+      // Diện tích
+      const aM = t.match(/(?:diện\s*tích|dt|s)[:\s]*([\d.,]+)\s*m[²2]/i);
+      if (aM) result.acreage = aM[1].replace(',','.');
+
+      // Ngang x Dài pattern "4x15m" hoặc "4 x 15 m"
+      const wxlM = t.match(/([\d.,]+)\s*[x×*]\s*([\d.,]+)\s*m/i);
+      if (wxlM) {
+        const w = parseFloat(wxlM[1].replace(',','.')), l = parseFloat(wxlM[2].replace(',','.'));
+        if (w > 0 && l > 0 && w < l) {
+          if (!result.acreage) result.acreage = (w * l).toFixed(1);
+          result.width = String(w); result.length = String(l);
+        }
+      }
+      // Ngang tường minh
+      const wM = t.match(/(?:ngang|rộng|chiều\s*ngang)[:\s]*([\d.,]+)/i);
+      if (wM) result.width = wM[1].replace(',','.');
+      const lM = t.match(/(?:dài|sâu|chiều\s*dài)[:\s]*([\d.,]+)/i);
+      if (lM) result.length = lM[1].replace(',','.');
+
+      // Giá
+      result.price = parsePrice(t);
+
+      // Kết cấu
+      const floorM = t.match(/(\d+)\s*t[aầ]ng/i);
+      const btctM  = t.match(/(btct|bê\s*tông\s*cốt\s*thép)/i);
+      if (floorM) result.structure = floorM[1] + ' tầng' + (btctM ? ' BTCT' : '');
+      else if (/c[aấ]p\s*4/i.test(t)) result.structure = 'Nhà cấp 4';
+      else if (/khung\s*thép/i.test(t)) result.structure = 'Khung thép';
+      else if (/nhà\s*gỗ/i.test(t)) result.structure = 'Nhà gỗ';
+
+      // DT xây dựng, DT sàn
+      const baM = t.match(/(?:dt\s*xây|xây\s*dựng|dtxd)[:\s]*([\d.,]+)\s*m[²2]?/i);
+      if (baM) result.buildArea = baM[1].replace(',','.');
+      const faM = t.match(/(?:dt\s*sàn|diện\s*tích\s*sàn)[:\s]*([\d.,]+)\s*m[²2]?/i);
+      if (faM) result.floorArea = faM[1].replace(',','.');
+
+      // Công năng
+      if (/mặt\s*tiền|kinh\s*doanh|thương\s*mại/i.test(t)) result.usage = 'Thương mại';
+      else if (/nhà\s*ở/i.test(t)) result.usage = 'Nhà ở';
+      else if (/đất\s*nền/i.test(t)) result.usage = 'Đất nền';
+      else if (/đất\s*nông\s*nghiệp/i.test(t)) result.usage = 'Đất nông nghiệp';
+
+      // Số điện thoại (mobile VN: 0[3-9]xxxxxxxx hoặc +84...)
+      const ph1 = t.match(/(?<!\d)0[3-9]\d\d[\s.-]?\d{3}[\s.-]?\d{3}(?!\d)/);
+      const ph2 = t.match(/(?<!\d)\+84[\s.-]?[3-9]\d\d[\s.-]?\d{3}[\s.-]?\d{3}(?!\d)/);
+      const phM = ph1 || ph2;
+      if (phM) {
+        let p = phM[0].replace(/[\s.-]/g, '');
+        if (p.startsWith('+84')) p = '0' + p.slice(3);
+        result.phone = p;
+      }
+
+      return result;
+    }
+
+    function applyExtractedInfo(result, showStatus) {
+      const map = [
+        ['field-acreage',   result.acreage,   'Diện tích'],
+        ['field-width',     result.width,     'Ngang'],
+        ['field-length',    result.length,    'Dài'],
+        ['field-price',     result.price,     'Giá'],
+        ['field-structure', result.structure, 'Kết cấu'],
+        ['field-buildarea', result.buildArea, 'DT xây dựng'],
+        ['field-floorarea', result.floorArea, 'DT sàn'],
+        ['field-usage',     result.usage,     'Công năng'],
+        ['field-phone',     result.phone,     'Điện thoại'],
+      ];
+      const dirEl = document.getElementById('field-direction');
+      const applied = [];
+      if (result.direction && !dirEl.value) { dirEl.value = result.direction; applied.push('Hướng: <b>' + esc(result.direction) + '</b>'); }
+      for (const [id, val, label] of map) {
+        if (!val) continue;
+        const el = document.getElementById(id);
+        if (!el.value.trim()) {
+          el.value = val;
+          applied.push(label + ': <b>' + esc(val) + '</b>');
+          if (id === 'field-phone') {
+            const btn = document.getElementById('call-btn-modal');
+            btn.href = 'tel:' + val; btn.style.display = 'inline-block';
+          }
+        }
+      }
+      if (applied.length === 0) showStatus('warn', '⚠️ Không tìm thấy thông tin BĐS. Ảnh cần có chữ rõ nét (giá, diện tích, hướng...).');
+      else showStatus('success', '✅ Đã điền: ' + applied.join(' · '));
     }
 
     // ── Color picker ──

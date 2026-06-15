@@ -1,4 +1,4 @@
-const CACHE = 'bandog-v3';
+const CACHE = 'bandog-v6';
 const CORE = [
   './index.html',
   './manifest.json',
@@ -26,7 +26,8 @@ self.addEventListener('fetch', e => {
   // Nominatim / telegra.ph / tile requests: network first, cache fallback
   const url = e.request.url;
   const isExternal = url.includes('nominatim') || url.includes('telegra.ph') ||
-                     url.includes('tile.openstreetmap') || url.includes('arcgisonline');
+                     url.includes('tile.openstreetmap') || url.includes('arcgisonline') ||
+                     url.includes('tesseract') || url.includes('tessdata');
   if (isExternal) {
     e.respondWith(
       fetch(e.request).catch(() => caches.match(e.request))
