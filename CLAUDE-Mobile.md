@@ -119,7 +119,7 @@ Dropdown "☰ Danh sách" cho phép nhóm theo:
 - Tên * (bắt buộc)
 - Mô tả ngắn
 - Ghi chú
-- Hình ảnh (URL hoặc upload) — có nút "🔍 Trích xuất thông tin" khi có ảnh
+- **Hình ảnh** (nhiều ảnh — xem mục 8)
 - Đường link web
 - Số điện thoại liên hệ — nút "📞 Gọi" hiện ngay khi nhập số
 - Màu marker (5 màu)
@@ -137,13 +137,41 @@ Dropdown "☰ Danh sách" cho phép nhóm theo:
 - Kết cấu
 - Công năng
 
-### 7. OCR — Trích xuất thông tin từ ảnh
+### 7. Đa ảnh (Multi-image)
 
-Khi có ảnh trong modal, nút **"🔍 Trích xuất thông tin"** xuất hiện ở góc dưới trái preview:
+Mỗi địa điểm có thể lưu **nhiều ảnh**. Trong modal, phần "Hình ảnh" gồm:
+
+- **Danh sách slot ảnh** (`#images-container`): mỗi slot là một hàng riêng biệt
+- **Nút "+ Thêm ảnh"** → thêm slot mới (bắt đầu với 1 slot trống)
+
+**Mỗi slot ảnh gồm:**
+
+| Thành phần | Mô tả |
+|---|---|
+| Ô nhập URL | Dán link ảnh trực tiếp |
+| Nút 📁 | Chọn file từ máy → nén → upload telegra.ph → fallback base64 |
+| Nút ✕ | Xóa slot này |
+| Thumbnail | Hiện ngay khi có URL hợp lệ |
+| Nút 🔍 Trích xuất | OCR ảnh trong slot này → tự điền form BĐS |
+| Status bar | Trạng thái upload/OCR: ⏳ / ✅ / ❌ |
+
+**Lưu trữ:**
+- `images: ["url1", "url2", ...]` — mảng đầy đủ trong Firestore
+- `image: "url1"` — ảnh đầu tiên, giữ để tương thích ngược
+
+**Hiển thị trong popup:**
+- 1 ảnh → hiển thị full-width (tối đa 130px chiều cao)
+- Nhiều ảnh → ảnh chính ở trên + hàng thumbnail nhỏ (80×80px) bên dưới, click thumbnail để đổi ảnh chính
+
+**Upload luồng:** Chọn file → Canvas resize (≤1200px) + nén JPEG 0.75 → thử `telegra.ph/upload` → nếu lỗi thì `FileReader.readAsDataURL` (base64 offline)
+
+### 8. OCR — Trích xuất thông tin từ ảnh
+
+Mỗi slot ảnh có nút **"🔍 Trích xuất thông tin"** riêng (hiện khi slot có URL):
 
 - **Thư viện:** Tesseract.js v5 (lazy-load từ CDN ~1MB, chỉ tải lần đầu nhấn nút)
 - **Ngôn ngữ OCR:** Tiếng Việt + Tiếng Anh (`createWorker(['vie', 'eng'], 1)`)
-- **Worker singleton:** `ocrWorker` tạo một lần, dùng lại cho các lần sau
+- **Worker singleton:** `ocrWorker` tạo một lần, dùng lại cho mọi slot / mọi lần
 - **Chính sách điền:** chỉ điền vào ô **đang trống** — không ghi đè dữ liệu đã nhập
 
 **Thông tin nhận diện được:**
@@ -171,15 +199,9 @@ Khi có ảnh trong modal, nút **"🔍 Trích xuất thông tin"** xuất hiệ
 - Format 4-3-3: `0[3-9]\d\d[\s.-]?\d{3}[\s.-]?\d{3}`
 - Quốc tế: `\+84[\s.-]?[3-9]...` → tự normalize về `0xxxxxxxxx`
 
-### 8. Upload ảnh (trong modal)
-Luồng: Chọn file → Canvas nén (≤1200px, JPEG 0.75) → thử upload `telegra.ph` → nếu lỗi thì fallback base64
-
-- Trạng thái hiển thị: ⏳ Đang nén... / ⏳ Đang tải lên... / ✅ Xong / ❌ Lỗi
-- Ảnh trên telegra.ph: **công khai, vĩnh viễn**
-- Fallback base64: lưu trong field `image`, file XML sẽ lớn hơn
-
 ### 9. Popup thông tin marker
-- Tên, mô tả, ghi chú, link web, ảnh
+- Tên, mô tả, ghi chú, link web
+- **Ảnh:** 1 ảnh = full-width; nhiều ảnh = ảnh chính + thumbnail gallery (click đổi ảnh)
 - Số điện thoại + nút **"Gọi"** (màu xanh lá, `href="tel:"`) nếu có SĐT
 - Bảng thông tin đất (nếu có): hướng, DT, ngang, dài, giá
 - Bảng tài sản (nếu có): DT xây dựng, DT sàn, kết cấu, công năng
@@ -222,7 +244,8 @@ service cloud.firestore {
   name,        // tên *
   desc,        // mô tả ngắn
   note,        // ghi chú
-  image,       // URL ảnh hoặc base64
+  images,      // mảng URL ảnh: ["url1", "url2", ...]
+  image,       // ảnh đầu tiên (images[0] || '') — tương thích ngược
   link,        // đường link web
   phone,       // số điện thoại liên hệ
   color,       // hex màu marker
@@ -261,7 +284,7 @@ Marker: hình pin SVG 28×36px, có vòng tròn trắng ở giữa, dùng `L.div
 
 | Biến | Kiểu | Mô tả |
 |---|---|---|
-| `db` | `Firestore` | Instance Firestore (firebase.firestore()) |
+| `db` | `Firestore` | Instance Firestore (`firebase.firestore()`) |
 | `locations` | `Array` | Danh sách địa điểm (sync từ Firestore) |
 | `leafletMarkers` | `Object` | Map `id → L.marker` |
 | `pendingLatLng` | `Object\|null` | Tọa độ click đang chờ lưu |
@@ -275,6 +298,7 @@ Marker: hình pin SVG 28×36px, có vòng tròn trắng ở giữa, dùng `L.div
 | `myLocationMarker` | `L.marker\|null` | Marker vị trí GPS |
 | `areaFetchRunning` | `boolean` | Đang chạy reverse geocode |
 | `ocrWorker` | `Tesseract.Worker\|null` | Worker OCR singleton (lazy-init) |
+| `imgSlotCounter` | `number` | Counter nội bộ cho DOM slot ảnh |
 
 ---
 
@@ -282,17 +306,17 @@ Marker: hình pin SVG 28×36px, có vòng tròn trắng ở giữa, dùng `L.div
 
 | Hàm | Mục đích |
 |---|---|
-| `save()` | Render lại markers + sidebar (không còn ghi storage) |
+| `save()` | Render lại markers + sidebar |
 | `renderMarkers()` | Xóa và vẽ lại toàn bộ marker (draggable) |
 | `renderSidebar()` | Render danh sách / nhóm trong sidebar |
 | `openModal(title, data)` | Mở modal thêm/sửa với data điền sẵn |
-| `closeModal()` | Đóng modal, reset state |
+| `closeModal()` | Đóng modal, xóa slots ảnh, reset state |
 | `saveLocation()` | Submit form → ghi Firestore (set mới hoặc update) |
 | `flyTo(id)` | Bay đến marker theo id, mở popup |
 | `editLocation(id)` | Mở modal sửa |
 | `deleteLocation(id)` | Xóa doc Firestore sau confirm |
 | `createIcon(color)` | Tạo Leaflet divIcon pin SVG |
-| `makePopupHtml(loc)` | Tạo HTML popup (có escape XSS) |
+| `makePopupHtml(loc)` | Tạo HTML popup (gallery ảnh, escape XSS) |
 | `toggleSidebar()` | Toggle drawer + backdrop |
 | `showHint(text)` | Hiện hint text trên bản đồ trong 3 giây |
 | `sidebarAddManual()` | Đóng sidebar + gợi ý click map |
@@ -302,17 +326,36 @@ Marker: hình pin SVG 28×36px, có vòng tròn trắng ở giữa, dùng `L.div
 | `goToCoords()` | Di chuyển theo Lat/Lng nhập tay |
 | `fetchArea(id, lat, lng)` | Nominatim reverse geocode → update `area` trên Firestore |
 | `fetchMissingAreas()` | Queue geocode cho các loc thiếu area |
+| `addImageSlot(url)` | Tạo và gắn DOM cho một slot ảnh vào `#images-container` |
+| `removeImageSlot(btn)` | Xóa slot ảnh chứa nút được nhấn |
+| `setSlotPreview(url, previewEl, thumbEl)` | Hiển thị/ẩn thumbnail trong slot |
+| `setSlotStatus(el, type, msg)` | Hiện status bar trong slot (loading/success/error) |
+| `getImagesFromForm()` | Trả về mảng URL từ tất cả các slot có giá trị |
+| `setImagesInForm(images)` | Xóa container và tạo lại slots từ mảng URL |
+| `extractInfoFromSlot(btn)` | OCR ảnh trong slot → parse → điền form |
 | `compressImage(file)` | Canvas resize+nén → Blob JPEG |
 | `uploadImage(blob)` | Upload lên telegra.ph → URL |
+| `blobToBase64(blob)` | Chuyển Blob thành data URL (base64) |
 | `saveXML()` | Xuất file XML (File System Access API / fallback download) |
 | `importXML(event)` | Import XML → batch write lên Firestore |
 | `esc(str)` | Escape HTML chống XSS |
 | `xmlEsc(str)` | Escape XML |
 | `ensureOCR()` | Lazy-load Tesseract.js + tạo worker singleton |
-| `extractInfoFromImage()` | Chạy OCR trên URL ảnh, gọi parse + apply |
 | `parseRealEstateText(text)` | Trích xuất hướng/DT/ngang/dài/giá/kết cấu/công năng/SĐT |
 | `parsePrice(t)` | Parse giá từ text (xử lý "tỷ/triệu/ty", shorthand, normalize) |
-| `applyExtractedInfo(result)` | Điền kết quả OCR vào form (chỉ ô trống) |
+| `applyExtractedInfo(result, showStatus)` | Điền kết quả OCR vào form (chỉ ô trống) |
+
+---
+
+## XML export/import
+
+**Thẻ `<images>`:** lưu nhiều URL cách nhau bằng `|||`
+```xml
+<image>https://telegra.ph/file/abc.jpg</image>
+<images>https://telegra.ph/file/abc.jpg|||https://telegra.ph/file/def.jpg</images>
+```
+- `<image>` giữ ảnh đầu tiên để tương thích ngược với dữ liệu cũ
+- `<images>` ưu tiên khi import; nếu không có thì fallback về `<image>`
 
 ---
 
@@ -321,7 +364,7 @@ Marker: hình pin SVG 28×36px, có vòng tròn trắng ở giữa, dùng `L.div
 - **Cache key:** `bandog-v7` (tăng version khi cần force refresh)
 - **Chiến lược cache:**
   - App shell (`index.html`, `manifest.json`, Leaflet): Cache first
-  - Network first (không cache): Nominatim, telegra.ph, map tiles, tesseract, tessdata, Firebase/Firestore URLs
+  - Network first (không cache): Nominatim, telegra.ph, map tiles, tesseract, tessdata, Firebase/Firestore/gstatic URLs
   - POST requests: bỏ qua
 - **Cập nhật SW:** đổi `CACHE = 'bandog-vN'` trong `sw.js` → push → người dùng tắt/mở lại app
 
@@ -349,3 +392,5 @@ Nếu vẫn thấy bản cũ: tăng version cache trong `sw.js`, push lại, xó
 - **Nominatim rate limit:** 1 request/giây — debounce 1100ms trong `fetchMissingAreas()`
 - **iOS PWA giới hạn:** không có push notification, không có background sync
 - **Firestore offline:** SDK tự cache local khi mất mạng, sync lại khi có mạng
+- **telegra.ph:** ảnh upload là công khai, vĩnh viễn, không xóa được
+- **Base64 fallback:** khi telegra.ph lỗi, ảnh lưu dạng data URL trong field `image` — file XML sẽ rất lớn nếu có nhiều ảnh
