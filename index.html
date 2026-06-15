@@ -106,19 +106,30 @@
     .search-bar button.gray:hover { background: #3c4043; }
     .upload-btn {
       background: #f1f3f4; color: #444; border: 1px solid #ddd;
-      border-radius: 8px; padding: 7px 12px;
+      border-radius: 8px; padding: 6px 9px;
       font-size: 0.82rem; cursor: pointer; white-space: nowrap;
       transition: background 0.2s, opacity 0.2s; flex-shrink: 0;
     }
     .upload-btn:hover { background: #e0e0e0; }
     .upload-btn.uploading { opacity: 0.55; pointer-events: none; }
-    #upload-status {
-      display: none; font-size: 0.78rem; margin-top: 5px;
-      padding: 5px 9px; border-radius: 6px; line-height: 1.4;
-    }
-    #upload-status.st-loading { background:#fff8e1; color:#e65100; }
-    #upload-status.st-success { background:#e8f5e9; color:#2e7d32; }
-    #upload-status.st-error   { background:#fce8e6; color:#c62828; }
+
+    /* ── Multi-image slots ── */
+    .image-slot { margin-bottom: 8px; }
+    .image-slot-row { display: flex; gap: 5px; align-items: center; }
+    .image-slot-url { flex: 1; min-width: 0; border: 1px solid #ddd; border-radius: 8px; padding: 6px 10px; font-size: 0.84rem; outline: none; }
+    .image-slot-url:focus { border-color: #1a73e8; }
+    .image-slot-remove { background: none; border: 1px solid #ddd; color: #999; border-radius: 8px; padding: 5px 8px; font-size: 0.8rem; cursor: pointer; flex-shrink: 0; line-height: 1; transition: background 0.15s, color 0.15s; }
+    .image-slot-remove:hover { background: #fce8e6; color: #c62828; border-color: #f8bbba; }
+    .image-slot-status { display: none; font-size: 0.76rem; margin-top: 4px; padding: 4px 8px; border-radius: 6px; line-height: 1.4; }
+    .image-slot-status.st-loading { background:#fff8e1; color:#e65100; display:block; }
+    .image-slot-status.st-success { background:#e8f5e9; color:#2e7d32; display:block; }
+    .image-slot-status.st-error   { background:#fce8e6; color:#c62828; display:block; }
+    .image-slot-preview { display: none; margin-top: 6px; position: relative; }
+    .image-slot-thumb { width: 100%; max-height: 140px; object-fit: cover; border-radius: 8px; border: 1px solid #ddd; display: block; }
+    .image-slot-ocr { position: absolute; bottom: 6px; left: 6px; background: rgba(26,115,232,0.92); color: white; border: none; border-radius: 12px; padding: 4px 10px; cursor: pointer; font-size: 0.76rem; white-space: nowrap; font-family: inherit; }
+    .image-slot-ocr:disabled { opacity: 0.6; }
+    .add-image-btn { display: flex; align-items: center; gap: 5px; background: none; border: 1px dashed #aaa; color: #555; border-radius: 8px; padding: 6px 12px; font-size: 0.82rem; cursor: pointer; width: 100%; justify-content: center; transition: background 0.15s, border-color 0.15s; margin-top: 2px; }
+    .add-image-btn:hover { background: #f0f4ff; border-color: #1a73e8; color: #1a73e8; }
 
     .gray-btn {
       background: #5f6368; color: white; border: none;
@@ -610,25 +621,8 @@
         </div>
         <div class="form-group">
           <label>Hình ảnh</label>
-          <div style="display:flex;gap:7px;align-items:center">
-            <input type="url" id="field-image" placeholder="Dán link ảnh hoặc chọn file..." style="flex:1" />
-            <label class="upload-btn" id="upload-btn-label" title="Chọn ảnh từ máy — tự động nén và lưu lên telegra.ph (miễn phí, không cần tài khoản)">
-              📁 Chọn ảnh
-              <input type="file" id="field-image-file" accept="image/*" style="display:none" />
-            </label>
-          </div>
-          <div id="upload-status"></div>
-          <div id="image-preview" style="display:none;margin-top:8px;position:relative">
-            <img id="preview-img" src="" alt="preview" crossorigin="anonymous"
-              style="width:100%;max-height:160px;object-fit:cover;border-radius:8px;border:1px solid #ddd;display:block" />
-            <button onclick="clearImage()" title="Xóa ảnh"
-              style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.55);color:white;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:0.85rem;line-height:1">✕</button>
-            <button id="extract-btn" onclick="extractInfoFromImage()" title="Nhận diện chữ trong ảnh và tự điền thông tin BĐS"
-              style="position:absolute;bottom:6px;left:6px;background:rgba(26,115,232,0.92);color:white;border:none;border-radius:12px;padding:4px 10px;cursor:pointer;font-size:0.76rem;white-space:nowrap;font-family:inherit">
-              🔍 Trích xuất thông tin
-            </button>
-          </div>
-          <div id="extract-status" style="display:none;margin-top:6px;font-size:0.79rem;padding:7px 10px;border-radius:6px;line-height:1.6;border:1px solid transparent"></div>
+          <div id="images-container"></div>
+          <button type="button" class="add-image-btn" onclick="addImageSlot()">+ Thêm ảnh</button>
         </div>
         <div class="form-group">
           <label>Đường link web</label>
@@ -839,7 +833,14 @@
 
     // ── Popup content ──
     function makePopupHtml(loc) {
-      const image = loc.image ? `<img src="${esc(loc.image)}" alt="" style="width:100%;max-height:130px;object-fit:cover;border-radius:6px;margin-top:6px;display:block" onerror="this.style.display='none'" />` : '';
+      const imgs = loc.images?.length ? loc.images : (loc.image ? [loc.image] : []);
+      let image = '';
+      if (imgs.length === 1) {
+        image = `<img src="${esc(imgs[0])}" alt="" style="width:100%;max-height:130px;object-fit:cover;border-radius:6px;margin-top:6px;display:block" onerror="this.style.display='none'" />`;
+      } else if (imgs.length > 1) {
+        const thumbs = imgs.map(u => `<img src="${esc(u)}" alt="" style="height:80px;width:80px;object-fit:cover;border-radius:6px;flex-shrink:0;border:1px solid #ddd;cursor:pointer" onclick="this.parentNode.parentNode.querySelector('.popup-main-img').src=this.src" onerror="this.style.display='none'" />`).join('');
+        image = `<div style="margin-top:6px"><img class="popup-main-img" src="${esc(imgs[0])}" alt="" style="width:100%;max-height:120px;object-fit:cover;border-radius:6px;display:block;border:1px solid #ddd" onerror="this.style.display='none'" /><div style="display:flex;gap:5px;overflow-x:auto;padding:4px 0;margin-top:4px">${thumbs}</div></div>`;
+      }
       const desc = loc.desc ? `<div style="color:#555;font-size:0.82rem;margin-top:5px">${esc(loc.desc)}</div>` : '';
       const note = loc.note ? `<div style="color:#777;font-size:0.78rem;margin-top:5px;padding-top:5px;border-top:1px solid #eee">${esc(loc.note)}</div>` : '';
       const link = loc.link ? `<div style="margin-top:5px"><a href="${esc(loc.link)}" target="_blank" rel="noopener" style="color:#1a73e8;font-size:0.78rem;word-break:break-all">🔗 ${esc(loc.link)}</a></div>` : '';
@@ -877,7 +878,7 @@
       const svUrl = `https://www.google.com/maps/@${loc.lat},${loc.lng},3a,75y,90t/data=!3m6!1e1`;
       return `<div style="font-family:sans-serif;min-width:200px;max-width:260px;padding:2px 0">
         ${image}
-        <strong style="font-size:0.92rem;color:#202124;display:block;margin-top:${loc.image ? '6px' : '0'}">${esc(loc.name)}</strong>
+        <strong style="font-size:0.92rem;color:#202124;display:block;margin-top:${imgs.length ? '6px' : '0'}">${esc(loc.name)}</strong>
         ${desc}${note}${link}${phone}${coords}${landSection}${assetSection}
         <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
           <button onclick="editLocation(${loc.id})" style="border:1px solid #1a73e8;background:#e8f0fe;color:#1a73e8;border-radius:6px;padding:3px 10px;font-size:0.78rem;cursor:pointer">Sửa</button>
@@ -1112,6 +1113,7 @@
     <desc>${xmlEsc(loc.desc)}</desc>
     <note>${xmlEsc(loc.note)}</note>
     <image>${xmlEsc(loc.image)}</image>
+    <images>${xmlEsc((loc.images||[]).join('|||'))}</images>
     <link>${xmlEsc(loc.link)}</link>
     <color>${xmlEsc(loc.color)}</color>
     <area>${xmlEsc(loc.area)}</area>
@@ -1142,6 +1144,7 @@
           desc: get('desc'),
           note: get('note'),
           image:     get('image'),
+          images:    get('images') ? get('images').split('|||').filter(Boolean) : (get('image') ? [get('image')] : []),
           link:      get('link'),
           color:     get('color') || '#e53935',
           area:      get('area'),
@@ -1272,7 +1275,6 @@
       set('field-name',      data.name);
       set('field-desc',      data.desc);
       set('field-note',      data.note);
-      set('field-image',     data.image);
       set('field-link',      data.link);
       set('field-direction', data.direction);
       set('field-acreage',   data.acreage);
@@ -1292,7 +1294,8 @@
       document.querySelectorAll('.color-dot').forEach(d => {
         d.classList.toggle('selected', d.dataset.color === selectedColor);
       });
-      setImagePreview(data.image || '');
+      const imgs = data.images?.length ? data.images : (data.image ? [data.image] : []);
+      setImagesInForm(imgs);
       document.getElementById('modal-overlay').classList.remove('hidden');
       setTimeout(() => document.getElementById('field-name').focus(), 50);
     }
@@ -1302,18 +1305,9 @@
       return bytes >= 1048576 ? (bytes / 1048576).toFixed(1) + ' MB' : (bytes / 1024).toFixed(0) + ' KB';
     }
 
-    function setUploadStatus(type, msg) {
-      const el = document.getElementById('upload-status');
-      el.className = 'st-' + type;
-      el.style.display = 'block';
+    function setSlotStatus(el, type, msg) {
       el.textContent = msg;
-    }
-
-    function clearUploadStatus() {
-      const el = document.getElementById('upload-status');
-      el.style.display = 'none';
-      el.className = '';
-      el.textContent = '';
+      el.className = 'image-slot-status st-' + type;
     }
 
     async function compressImage(file, maxDim = 1200, quality = 0.75) {
@@ -1353,21 +1347,95 @@
       return 'https://telegra.ph' + data[0].src;
     }
 
-    function setImagePreview(url) {
-      const preview = document.getElementById('image-preview');
-      const img = document.getElementById('preview-img');
+    // ── Multi-image slot system ──
+    let imgSlotCounter = 0;
+
+    function setSlotPreview(url, previewEl, thumbEl) {
       if (url) {
-        img.src = url;
-        img.onerror = () => { preview.style.display = 'none'; };
-        img.onload = () => { preview.style.display = 'block'; };
+        thumbEl.src = url;
+        thumbEl.onerror = () => { previewEl.style.display = 'none'; };
+        thumbEl.onload  = () => { previewEl.style.display = 'block'; };
       } else {
-        preview.style.display = 'none';
+        previewEl.style.display = 'none';
       }
+    }
+
+    function addImageSlot(url = '') {
+      const container = document.getElementById('images-container');
+      const div = document.createElement('div');
+      div.className = 'image-slot';
+      div.innerHTML = `
+        <div class="image-slot-row">
+          <input type="url" class="image-slot-url" placeholder="Dán link ảnh hoặc chọn file..." value="${esc(url)}" />
+          <label class="upload-btn" title="Chọn ảnh từ máy">📁<input type="file" class="image-slot-file" accept="image/*" style="display:none" /></label>
+          <button type="button" class="image-slot-remove" onclick="removeImageSlot(this)" title="Xóa ảnh này">✕</button>
+        </div>
+        <div class="image-slot-status"></div>
+        <div class="image-slot-preview">
+          <img class="image-slot-thumb" src="" alt="" crossorigin="anonymous" />
+          <button type="button" class="image-slot-ocr" onclick="extractInfoFromSlot(this)">🔍 Trích xuất thông tin</button>
+        </div>`;
+      container.appendChild(div);
+
+      const urlInput   = div.querySelector('.image-slot-url');
+      const fileInput  = div.querySelector('.image-slot-file');
+      const uploadLbl  = div.querySelector('.upload-btn');
+      const statusEl   = div.querySelector('.image-slot-status');
+      const previewEl  = div.querySelector('.image-slot-preview');
+      const thumbEl    = div.querySelector('.image-slot-thumb');
+
+      urlInput.addEventListener('input', () => setSlotPreview(urlInput.value.trim(), previewEl, thumbEl));
+      if (url) setSlotPreview(url, previewEl, thumbEl);
+
+      fileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        e.target.value = '';
+        uploadLbl.classList.add('uploading');
+        try {
+          setSlotStatus(statusEl, 'loading', '⏳ Đang nén ảnh...');
+          const compressed = await compressImage(file);
+          const sizeLabel = `${fmtSize(file.size)} → ${fmtSize(compressed.size)}`;
+          let imgUrl;
+          try {
+            setSlotStatus(statusEl, 'loading', `⏳ Đang tải lên (${fmtSize(compressed.size)})...`);
+            imgUrl = await uploadImage(compressed);
+            setSlotStatus(statusEl, 'success', `✅ ${sizeLabel} · telegra.ph`);
+          } catch {
+            setSlotStatus(statusEl, 'loading', '⚠️ Không kết nối được, đang lưu offline...');
+            imgUrl = await blobToBase64(compressed);
+            setSlotStatus(statusEl, 'success', `✅ ${sizeLabel} · offline`);
+          }
+          urlInput.value = imgUrl;
+          setSlotPreview(imgUrl, previewEl, thumbEl);
+        } catch (err) {
+          setSlotStatus(statusEl, 'error', `❌ ${err.message}`);
+        } finally {
+          uploadLbl.classList.remove('uploading');
+        }
+      });
+
+      return div;
+    }
+
+    function removeImageSlot(btn) {
+      btn.closest('.image-slot').remove();
+    }
+
+    function getImagesFromForm() {
+      return Array.from(document.querySelectorAll('#images-container .image-slot-url'))
+        .map(el => el.value.trim()).filter(Boolean);
+    }
+
+    function setImagesInForm(images) {
+      document.getElementById('images-container').innerHTML = '';
+      const list = images && images.length ? images : [''];
+      list.forEach(url => addImageSlot(url));
     }
 
     function closeModal() {
       document.getElementById('modal-overlay').classList.add('hidden');
-      clearUploadStatus();
+      document.getElementById('images-container').innerHTML = '';
       pendingLatLng = null;
       pendingTextData = null;
       editingId = null;
@@ -1377,11 +1445,13 @@
       const name = document.getElementById('field-name').value.trim();
       if (!name) { document.getElementById('field-name').focus(); return; }
       const get = id => document.getElementById(id).value.trim();
+      const imagesList = getImagesFromForm();
       const fields = {
         name,
         desc:      get('field-desc'),
         note:      get('field-note'),
-        image:     get('field-image'),
+        images:    imagesList,
+        image:     imagesList[0] || '',
         link:      get('field-link'),
         direction: get('field-direction'),
         acreage:   get('field-acreage'),
@@ -1432,11 +1502,6 @@
       await db.collection('locations').doc(String(id)).delete();
     }
 
-    // Preview khi nhập URL
-    document.getElementById('field-image').addEventListener('input', (e) => {
-      setImagePreview(e.target.value.trim());
-    });
-
     // Cập nhật nút gọi khi nhập số điện thoại
     document.getElementById('field-phone').addEventListener('input', (e) => {
       const phone = e.target.value.trim();
@@ -1452,47 +1517,6 @@
         reader.onerror = reject;
         reader.readAsDataURL(blob);
       });
-    }
-
-    // Upload ảnh từ máy → nén Canvas → thử upload telegra.ph → fallback base64
-    document.getElementById('field-image-file').addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      e.target.value = '';
-      const btn = document.getElementById('upload-btn-label');
-      btn.classList.add('uploading');
-      try {
-        setUploadStatus('loading', '⏳ Đang nén ảnh...');
-        const compressed = await compressImage(file);
-        const saved = ((1 - compressed.size / file.size) * 100).toFixed(0);
-        const sizeLabel = `${fmtSize(file.size)} → ${fmtSize(compressed.size)} (tiết kiệm ${saved}%)`;
-
-        let url;
-        try {
-          setUploadStatus('loading', `⏳ Đang tải lên (${fmtSize(compressed.size)})...`);
-          url = await uploadImage(compressed);
-          setUploadStatus('success', `✅ ${sizeLabel} · telegra.ph`);
-        } catch {
-          // CORS / mạng → lưu base64 trong XML
-          setUploadStatus('loading', '⚠️ Không kết nối được, đang lưu trực tiếp vào file...');
-          url = await blobToBase64(compressed);
-          setUploadStatus('success', `✅ ${sizeLabel} · lưu trong XML (offline)`);
-        }
-
-        document.getElementById('field-image').value = url;
-        setImagePreview(url);
-      } catch (err) {
-        setUploadStatus('error', `❌ ${err.message}`);
-      } finally {
-        btn.classList.remove('uploading');
-      }
-    });
-
-    function clearImage() {
-      document.getElementById('field-image').value = '';
-      setImagePreview('');
-      clearUploadStatus();
-      document.getElementById('extract-status').style.display = 'none';
     }
 
     // ── OCR / Trích xuất thông tin từ ảnh ──
@@ -1513,18 +1537,15 @@
       return ocrWorker;
     }
 
-    async function extractInfoFromImage() {
-      const imgUrl = document.getElementById('field-image').value.trim();
+    async function extractInfoFromSlot(btn) {
+      const slot = btn.closest('.image-slot');
+      const imgUrl = slot.querySelector('.image-slot-url').value.trim();
       if (!imgUrl) return;
-      const btn = document.getElementById('extract-btn');
-      const statusEl = document.getElementById('extract-status');
+      const statusEl = slot.querySelector('.image-slot-status');
 
       function showOcrStatus(type, msg) {
-        statusEl.style.display = 'block';
-        const colors = { info: ['#e8f0fe','#1a73e8','#c5d8fd'], success: ['#e8f5e9','#2e7d32','#a5d6a7'], warn: ['#fff8e1','#e65100','#ffe082'], error: ['#fdecea','#c62828','#ffcdd2'] };
-        const [bg, fg, bd] = colors[type] || colors.info;
-        Object.assign(statusEl.style, { background: bg, color: fg, borderColor: bd });
-        statusEl.innerHTML = msg;
+        const typeMap = { info: 'loading', success: 'success', warn: 'loading', error: 'error' };
+        setSlotStatus(statusEl, typeMap[type] || 'loading', msg);
       }
 
       btn.disabled = true; btn.textContent = '⏳...';
