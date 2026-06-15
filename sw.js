@@ -1,4 +1,4 @@
-const CACHE = 'bandog-v6';
+const CACHE = 'bandog-v7';
 const CORE = [
   './index.html',
   './manifest.json',
@@ -27,7 +27,9 @@ self.addEventListener('fetch', e => {
   const url = e.request.url;
   const isExternal = url.includes('nominatim') || url.includes('telegra.ph') ||
                      url.includes('tile.openstreetmap') || url.includes('arcgisonline') ||
-                     url.includes('tesseract') || url.includes('tessdata');
+                     url.includes('tesseract') || url.includes('tessdata') ||
+                     url.includes('firestore.googleapis') || url.includes('firebase') ||
+                     url.includes('gstatic.com/firebasejs');
   if (isExternal) {
     e.respondWith(
       fetch(e.request).catch(() => caches.match(e.request))

@@ -16,6 +16,8 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -347,6 +349,49 @@
     .loc-item.drag-over-top { border-top: 2px solid #1a73e8; }
     .loc-item.drag-over-bottom { border-bottom: 2px solid #1a73e8; }
 
+    /* ── Sidebar add section ── */
+    .sidebar-add-section {
+      padding: 7px 12px;
+      border-bottom: 1px solid #e0e0e0;
+      background: #f0f4ff;
+      flex-shrink: 0;
+    }
+    .sidebar-add-row {
+      display: flex; align-items: center; gap: 6px;
+    }
+    .sidebar-add-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #1a73e8;
+      letter-spacing: 0.3px;
+      flex: 1;
+      white-space: nowrap;
+    }
+    .sidebar-add-btns { display: flex; gap: 5px; flex-shrink: 0; }
+    .sidebar-add-btns button {
+      padding: 4px 9px; border: none; border-radius: 6px;
+      font-size: 0.73rem; cursor: pointer; font-family: inherit;
+      font-weight: 500; transition: background 0.15s; white-space: nowrap;
+    }
+    .btn-manual { background: #1a73e8; color: white; }
+    .btn-manual:active { background: #1557b0; }
+    .btn-fromtext { background: white; color: #1a73e8; border: 1.5px solid #1a73e8 !important; }
+    .btn-fromtext:active { background: #e8f0fe; }
+    .text-input-panel { display: none; margin-top: 9px; }
+    .text-input-panel.open { display: block; }
+    .text-input-panel textarea {
+      width: 100%; height: 96px; border: 1px solid #c5cae9; border-radius: 8px;
+      padding: 8px 10px; font-size: 0.82rem; font-family: inherit;
+      resize: vertical; outline: none; color: #333; line-height: 1.5;
+    }
+    .text-input-panel textarea:focus { border-color: #1a73e8; }
+    .btn-analyze {
+      margin-top: 7px; width: 100%; padding: 7px; background: #43a047;
+      color: white; border: none; border-radius: 8px; font-size: 0.83rem;
+      font-family: inherit; cursor: pointer; font-weight: 500;
+    }
+    .btn-analyze:active { background: #388e3c; }
+
     .sidebar-empty {
       text-align: center;
       color: #aaa;
@@ -515,6 +560,19 @@
 
     <div id="sidebar-backdrop" onclick="toggleSidebar()"></div>
     <div id="sidebar">
+      <div class="sidebar-add-section">
+        <div class="sidebar-add-row">
+          <span class="sidebar-add-title">+ Thêm địa điểm</span>
+          <div class="sidebar-add-btns">
+            <button class="btn-manual" onclick="sidebarAddManual()">📝 Tự nhập</button>
+            <button class="btn-fromtext" onclick="toggleTextInput()">📋 Nhập từ text</button>
+          </div>
+        </div>
+        <div class="text-input-panel" id="text-input-panel">
+          <textarea id="text-paste-area" placeholder="Dán nội dung BĐS vào đây...&#10;VD: Bán nhà 4x15m, 3 tầng BTCT, giá 4 tỷ 5, hướng Đông Nam, LH: 0912 345 678"></textarea>
+          <button class="btn-analyze" onclick="analyzeAndPrepare()">🔍 Phân tích & Điền form</button>
+        </div>
+      </div>
       <div class="sidebar-header">
         <span>Danh sách địa điểm</span>
         <select id="group-by" title="Nhóm theo trường">
@@ -672,27 +730,26 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
+    // ── Firebase ──
+    firebase.initializeApp({
+      apiKey: "AIzaSyBuuxnR8w8Sd2VSuMfU8Sx7S3aoYLWneD8",
+      authDomain: "bdsmap-3b584.firebaseapp.com",
+      projectId: "bdsmap-3b584",
+      storageBucket: "bdsmap-3b584.firebasestorage.app",
+      messagingSenderId: "1040944177628",
+      appId: "1:1040944177628:web:147c05fd57d278c333ef19"
+    });
+    const db = firebase.firestore();
+
     // ── State ──
-    const STORAGE_KEY = 'map_locations';
-
-    function saveToStorage() {
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(locations)); } catch {}
-    }
-
-    function loadFromStorage() {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) { locations = JSON.parse(raw); return true; }
-      } catch {}
-      return false;
-    }
 
     let locations = [];
     let searchMarker = null;
     let myLocationMarker = null;
     let leafletMarkers = {};   // id → L.marker
-    let pendingLatLng = null;  // tọa độ đang chờ lưu
-    let editingId = null;      // id đang chỉnh sửa
+    let pendingLatLng = null;   // tọa độ đang chờ lưu
+    let pendingTextData = null; // dữ liệu đã parse từ text, chờ click map
+    let editingId = null;       // id đang chỉnh sửa
     let selectedColor = '#e53935';
     let sidebarVisible = false;
 
@@ -738,7 +795,12 @@
     map.on('click', (e) => {
       pendingLatLng = e.latlng;
       editingId = null;
-      openModal('Thêm địa điểm', { lat: e.latlng.lat, lng: e.latlng.lng });
+      const data = pendingTextData
+        ? { lat: e.latlng.lat, lng: e.latlng.lng, ...pendingTextData }
+        : { lat: e.latlng.lat, lng: e.latlng.lng };
+      pendingTextData = null;
+      showHint('Click vào bản đồ để thêm địa điểm');
+      openModal('Thêm địa điểm', data);
     });
 
     // Chuột phải → menu Street View
@@ -838,17 +900,13 @@
         const m = L.marker([loc.lat, loc.lng], { icon: createIcon(loc.color), draggable: true }).addTo(map);
         m.bindPopup(makePopupHtml(loc), { maxWidth: 260 });
 
-        m.on('dragend', (e) => {
+        m.on('dragend', async (e) => {
           const { lat, lng } = e.target.getLatLng();
-          loc.lat = lat;
-          loc.lng = lng;
-          m.setPopupContent(makePopupHtml(loc));
           if (editingId === loc.id) {
             document.getElementById('modal-lat').value = lat.toFixed(6);
             document.getElementById('modal-lng').value = lng.toFixed(6);
           }
-          renderSidebar();
-          saveToStorage();
+          await db.collection('locations').doc(String(loc.id)).update({ lat, lng });
         });
 
         leafletMarkers[loc.id] = m;
@@ -927,7 +985,12 @@
           const [moved] = locations.splice(srcIdx, 1);
           tgtIdx = locations.findIndex(l => l.id === loc.id);
           locations.splice(isTop ? tgtIdx : tgtIdx + 1, 0, moved);
-          save();
+          renderSidebar();
+          const batch = db.batch();
+          locations.forEach((l, idx) => {
+            batch.update(db.collection('locations').doc(String(l.id)), { sortOrder: idx * 1000 });
+          });
+          batch.commit();
         });
       }
       return item;
@@ -987,18 +1050,19 @@
     }
 
     // ── Nhóm theo khu vực ──
-    async function fetchArea(loc) {
+    async function fetchArea(id, lat, lng) {
       try {
         const res = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?lat=${loc.lat}&lon=${loc.lng}&format=json&accept-language=vi`
+          `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=vi`
         );
         const data = await res.json();
         const addr = data.address || {};
         const district = addr.city_district || addr.county || addr.town || addr.village || addr.suburb || '';
         const province = addr.state || addr.city || '';
-        loc.area = [district, province].filter(Boolean).join(', ') || 'Không xác định';
+        const area = [district, province].filter(Boolean).join(', ') || 'Không xác định';
+        await db.collection('locations').doc(String(id)).update({ area });
       } catch {
-        loc.area = 'Không xác định';
+        try { await db.collection('locations').doc(String(id)).update({ area: 'Không xác định' }); } catch {}
       }
     }
 
@@ -1009,11 +1073,10 @@
       if (!missing.length) return;
       areaFetchRunning = true;
       for (let i = 0; i < missing.length; i++) {
-        await fetchArea(missing[i]);
-        renderSidebar();
+        const { id, lat, lng } = missing[i];
+        await fetchArea(id, lat, lng);
         if (i < missing.length - 1) await new Promise(r => setTimeout(r, 1100));
       }
-      saveToStorage();
       areaFetchRunning = false;
     }
 
@@ -1026,7 +1089,6 @@
     });
 
     function save() {
-      saveToStorage();
       renderMarkers();
       renderSidebar();
     }
@@ -1172,12 +1234,16 @@
       const file = event.target.files[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         try {
-          locations = parseXML(e.target.result);
-          saveToStorage();
-          renderMarkers();
-          renderSidebar();
+          const imported = parseXML(e.target.result);
+          const batch = db.batch();
+          imported.forEach((loc, idx) => {
+            if (!loc.sortOrder) loc.sortOrder = loc.id ?? (Date.now() + idx);
+            batch.set(db.collection('locations').doc(String(loc.id)), loc);
+          });
+          await batch.commit();
+          alert(`Đã nhập ${imported.length} địa điểm lên cloud.`);
         } catch (err) {
           alert('Lỗi đọc file XML: ' + err.message);
         }
@@ -1303,10 +1369,11 @@
       document.getElementById('modal-overlay').classList.add('hidden');
       clearUploadStatus();
       pendingLatLng = null;
+      pendingTextData = null;
       editingId = null;
     }
 
-    function saveLocation() {
+    async function saveLocation() {
       const name = document.getElementById('field-name').value.trim();
       if (!name) { document.getElementById('field-name').focus(); return; }
       const get = id => document.getElementById(id).value.trim();
@@ -1330,20 +1397,15 @@
       };
 
       if (editingId !== null) {
-        const loc = locations.find(l => l.id === editingId);
-        if (loc) Object.assign(loc, fields);
+        await db.collection('locations').doc(String(editingId)).update(fields);
       } else {
-        const newLoc = {
-          id: Date.now(),
-          lat: pendingLatLng.lat,
-          lng: pendingLatLng.lng,
-          area: '',
-          ...fields,
-        };
-        locations.push(newLoc);
-        fetchArea(newLoc).then(() => { renderSidebar(); saveToStorage(); });
+        const id = Date.now();
+        await db.collection('locations').doc(String(id)).set({
+          id, lat: pendingLatLng.lat, lng: pendingLatLng.lng,
+          area: '', sortOrder: id, createdAt: id, ...fields
+        });
+        fetchArea(id, pendingLatLng.lat, pendingLatLng.lng);
       }
-      save();
       closeModal();
     }
 
@@ -1364,10 +1426,10 @@
       openModal('Chỉnh sửa địa điểm', loc);
     }
 
-    function deleteLocation(id) {
+    async function deleteLocation(id) {
       if (!confirm('Xóa địa điểm này?')) return;
-      locations = locations.filter(l => l.id !== id);
-      save();
+      Object.values(leafletMarkers).forEach(m => m.closePopup());
+      await db.collection('locations').doc(String(id)).delete();
     }
 
     // Preview khi nhập URL
@@ -1646,6 +1708,43 @@
       document.getElementById('sidebar-backdrop').classList.toggle('visible', sidebarVisible);
     }
 
+    // ── Sidebar thêm địa điểm ──
+    function showHint(text) {
+      const hint = document.getElementById('map-hint');
+      hint.textContent = text;
+      hint.style.opacity = '1';
+      setTimeout(() => { hint.style.opacity = '0'; }, 3000);
+    }
+
+    function sidebarAddManual() {
+      if (sidebarVisible) toggleSidebar();
+      showHint('Click vào bản đồ để thêm địa điểm');
+    }
+
+    function toggleTextInput() {
+      const panel = document.getElementById('text-input-panel');
+      panel.classList.toggle('open');
+      if (panel.classList.contains('open')) {
+        document.getElementById('text-paste-area').focus();
+      }
+    }
+
+    function analyzeAndPrepare() {
+      const text = document.getElementById('text-paste-area').value.trim();
+      if (!text) return;
+      const result = parseRealEstateText(text);
+      const hasData = Object.keys(result).some(k => result[k]);
+      if (!hasData) {
+        showHint('Không tìm thấy thông tin BĐS trong đoạn text');
+        return;
+      }
+      pendingTextData = result;
+      document.getElementById('text-paste-area').value = '';
+      document.getElementById('text-input-panel').classList.remove('open');
+      if (sidebarVisible) toggleSidebar();
+      showHint('Đã phân tích xong — click vào bản đồ để đặt vị trí');
+    }
+
     // ── Search (Nominatim) ──
     const searchInput = document.getElementById('search-input');
     const searchResults = document.getElementById('search-results');
@@ -1782,13 +1881,21 @@
       );
     }
 
-    // ── Khởi tạo ──
-    if (loadFromStorage()) {
+    // ── Khởi tạo từ Firestore (real-time sync) ──
+    db.collection('locations').onSnapshot(snapshot => {
+      locations = snapshot.docs.map(doc => {
+        const d = doc.data();
+        return { ...d, id: d.id ?? Number(doc.id) };
+      });
+      locations.sort((a, b) =>
+        (a.sortOrder ?? a.createdAt ?? a.id ?? 0) - (b.sortOrder ?? b.createdAt ?? b.id ?? 0)
+      );
       renderMarkers();
       renderSidebar();
-    } else {
-      loadDataXML();
-    }
+    }, err => {
+      console.error('Firestore lỗi:', err);
+      alert('Không kết nối được Firestore. Kiểm tra internet hoặc cài đặt Firebase.');
+    });
   </script>
 
   <!-- Đăng ký Service Worker (PWA offline) -->
