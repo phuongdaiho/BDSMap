@@ -1686,13 +1686,13 @@
       ];
       const dirEl = document.getElementById('field-direction');
       const applied = [];
-      if (result.direction && !dirEl.value) { dirEl.value = result.direction; applied.push('Hướng: <b>' + esc(result.direction) + '</b>'); }
+      if (result.direction && !dirEl.value) { dirEl.value = result.direction; applied.push('Hướng: ' + result.direction); }
       for (const [id, val, label] of map) {
         if (!val) continue;
         const el = document.getElementById(id);
         if (!el.value.trim()) {
           el.value = val;
-          applied.push(label + ': <b>' + esc(val) + '</b>');
+          applied.push(label + ': ' + val);
           if (id === 'field-phone') {
             const btn = document.getElementById('call-btn-modal');
             btn.href = 'tel:' + val; btn.style.display = 'inline-block';
