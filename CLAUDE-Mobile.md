@@ -73,6 +73,7 @@ Layer control góc trên phải, `collapsed: false`.
 - **Kéo marker** → tọa độ cập nhật và ghi Firestore ngay lập tức
 - **Chuột phải / long-press** → popup Street View (mở Google Maps tab mới)
 - **Vị trí tôi** → icon chấm xanh pulse tại GPS, hiện popup tọa độ
+- **Hoa hướng** → tĩnh, góc dưới phải, 8 hướng (xem mục 11)
 
 ### 2. Tìm kiếm (Nominatim)
 - Gợi ý tự động sau 400ms khi gõ ≥ 3 ký tự
@@ -344,6 +345,35 @@ Marker: hình pin SVG 28×36px, có vòng tròn trắng ở giữa, dùng `L.div
 | `parseRealEstateText(text)` | Trích xuất hướng/DT/ngang/dài/giá/kết cấu/công năng/SĐT |
 | `parsePrice(t)` | Parse giá từ text (xử lý "tỷ/triệu/ty", shorthand, normalize) |
 | `applyExtractedInfo(result, showStatus)` | Điền kết quả OCR vào form (chỉ ô trống) |
+
+---
+
+### 11. Hoa hướng (Compass Rose)
+
+Hoa hướng **tĩnh** (không tương tác, không cần cảm biến) nằm góc **dưới phải** bản đồ.
+
+- **Leaflet custom control** (`position: 'bottomright'`), class `.north-arrow-wrap .north-arrow`
+- **SVG** `viewBox="0 0 130 130"` render `96×96px`, nền tròn trắng, viền `#e0e0e0`
+- `pointer-events: none` — không chặn thao tác bản đồ
+- Shadow qua CSS `filter: drop-shadow(...)` (không dùng `box-shadow` vì SVG)
+
+**4 hướng chính (mũi tên đầy đủ):**
+
+| Ký hiệu | Hướng | Màu |
+|---|---|---|
+| **B** | Bắc (North) | Đỏ `#e53935` — đường + mũi tên |
+| **N** | Nam (South) | Xám `#888` |
+| **Đ** | Đông (East) | Xám `#888` |
+| **T** | Tây (West) | Xám `#888` |
+
+**4 hướng phụ (đường mờ, không mũi tên):**
+
+| Ký hiệu | Hướng |
+|---|---|
+| ĐB | Đông Bắc |
+| ĐN | Đông Nam |
+| TN | Tây Nam |
+| TB | Tây Bắc |
 
 ---
 
