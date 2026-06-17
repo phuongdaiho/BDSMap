@@ -520,23 +520,17 @@
     .result-item:hover { background: #f0f6ff; }
     .result-item:last-child { border-bottom: none; }
 
-    /* ── Compass control ── */
-    .compass-ctrl {
-      background: white;
-      border-radius: 50%;
-      width: 48px; height: 48px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.28);
-      cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      transition: transform 0.1s;
-      user-select: none;
-      -webkit-user-select: none;
-      border: none;
+    /* ── North arrow ── */
+    .north-arrow {
+      background: rgba(255,255,255,0.88);
+      border-radius: 8px;
+      padding: 4px 6px 2px;
+      box-shadow: 0 1px 5px rgba(0,0,0,0.22);
+      pointer-events: none;
+      display: flex; flex-direction: column; align-items: center;
+      line-height: 1;
     }
-    .compass-ctrl:active { transform: scale(0.88); }
-    .compass-ctrl.inactive { opacity: 0.65; }
-    .compass-ctrl.active { box-shadow: 0 0 0 2.5px #1a73e8, 0 2px 8px rgba(0,0,0,0.28); }
-    .leaflet-bottom.leaflet-right .leaflet-control.compass-wrap {
+    .leaflet-bottom.leaflet-right .leaflet-control.north-arrow-wrap {
       margin-bottom: 12px;
       margin-right: 10px;
     }
@@ -744,7 +738,6 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate-src.js"></script>
   <script>
     // ── Firebase ──
     firebase.initializeApp({
@@ -770,7 +763,7 @@
     let sidebarVisible = false;
 
     // ── Map ──
-    const map = L.map('map', { rotate: true, bearing: 0 }).setView([21.0285, 105.8542], 13);
+    const map = L.map('map').setView([21.0285, 105.8542], 13);
 
     const layerStreet = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -801,99 +794,20 @@
       { position: 'topright', collapsed: false }
     ).addTo(map);
 
-    // ── Compass / Map-rotation control ──
-    (function() {
-      const CompassControl = L.Control.extend({
-        options: { position: 'bottomright' },
-        onAdd() {
-          const wrap = L.DomUtil.create('div', 'compass-wrap leaflet-control');
-          const btn = L.DomUtil.create('button', 'compass-ctrl', wrap);
-          btn.title = 'La bàn – Nhấn để bật xoay bản đồ theo hướng nhìn';
-
-          // Vẽ SVG compass; needle xoay ngược bearing để luôn chỉ Bắc trên màn hình
-          function buildSVG() {
-            return `<svg viewBox="0 0 60 60" width="36" height="36" style="display:block">
-              <circle cx="30" cy="30" r="28" fill="white" stroke="#e0e0e0" stroke-width="1.5"/>
-              <text x="30" y="11" text-anchor="middle" font-size="9" font-weight="700" fill="#e53935" font-family="sans-serif">N</text>
-              <text x="30" y="53.5" text-anchor="middle" font-size="7.5" fill="#999" font-family="sans-serif">S</text>
-              <text x="51" y="33" text-anchor="middle" font-size="7.5" fill="#999" font-family="sans-serif">E</text>
-              <text x="9" y="33" text-anchor="middle" font-size="7.5" fill="#999" font-family="sans-serif">W</text>
-              <g class="needle-grp">
-                <polygon points="30,12 27.5,30 32.5,30" fill="#e53935"/>
-                <polygon points="30,48 27.5,30 32.5,30" fill="#bdbdbd"/>
-                <circle cx="30" cy="30" r="3" fill="white" stroke="#555" stroke-width="1.5"/>
-              </g>
-            </svg>`;
-          }
-          btn.innerHTML = buildSVG();
-
-          L.DomEvent.disableClickPropagation(wrap);
-
-          let active = false;
-          let bearing = 0;
-          let orientHandler = null;
-
-          function setNeedle(b) {
-            const g = btn.querySelector('.needle-grp');
-            if (g) g.setAttribute('transform', `rotate(${-b}, 30, 30)`);
-          }
-
-          function applyBearing(h) {
-            if (Math.abs(h - bearing) < 0.5) return;
-            bearing = h;
-            map.setBearing(bearing);
-            setNeedle(bearing);
-          }
-
-          function activate() {
-            active = true;
-            btn.classList.add('active');
-            btn.title = 'La bàn đang bật – Nhấn để tắt & về Bắc';
-            orientHandler = (e) => {
-              const h = e.webkitCompassHeading != null
-                ? e.webkitCompassHeading
-                : (e.alpha != null ? (360 - e.alpha) % 360 : null);
-              if (h != null) applyBearing(h);
-            };
-            window.addEventListener('deviceorientationabsolute', orientHandler, true);
-            window.addEventListener('deviceorientation', orientHandler, true);
-          }
-
-          function deactivate() {
-            active = false;
-            btn.classList.remove('active');
-            btn.title = 'La bàn – Nhấn để bật xoay bản đồ theo hướng nhìn';
-            if (orientHandler) {
-              window.removeEventListener('deviceorientationabsolute', orientHandler, true);
-              window.removeEventListener('deviceorientation', orientHandler, true);
-              orientHandler = null;
-            }
-            bearing = 0;
-            map.setBearing(0);
-            setNeedle(0);
-          }
-
-          L.DomEvent.on(btn, 'click', () => {
-            if (active) { deactivate(); return; }
-            if (typeof DeviceOrientationEvent !== 'undefined' &&
-                typeof DeviceOrientationEvent.requestPermission === 'function') {
-              // iOS 13+: cần xin quyền trước
-              DeviceOrientationEvent.requestPermission()
-                .then(state => { if (state === 'granted') activate(); })
-                .catch(() => {});
-            } else {
-              activate();
-            }
-          });
-
-          // Khi user kéo bản đồ thủ công → tắt compass mode
-          map.on('dragstart', () => { if (active) deactivate(); });
-
-          return wrap;
-        },
-      });
-      new CompassControl().addTo(map);
-    })();
+    // ── North arrow (tĩnh, chỉ hướng Bắc) ──
+    new (L.Control.extend({
+      options: { position: 'bottomright' },
+      onAdd() {
+        const div = L.DomUtil.create('div', 'north-arrow-wrap north-arrow');
+        div.innerHTML = `<svg viewBox="0 0 20 32" width="18" height="29" style="display:block">
+          <polygon points="10,1 6,16 10,13 14,16" fill="#e53935"/>
+          <polygon points="10,31 6,16 10,19 14,16" fill="#bdbdbd"/>
+          <circle cx="10" cy="16" r="2.2" fill="white" stroke="#555" stroke-width="1"/>
+        </svg>
+        <span style="font-size:9px;font-weight:700;color:#e53935;font-family:sans-serif;margin-top:1px">N</span>`;
+        return div;
+      },
+    }))().addTo(map);
 
     // Ẩn hint sau 4 giây
     setTimeout(() => {
