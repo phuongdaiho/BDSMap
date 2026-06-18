@@ -878,14 +878,17 @@
     });
 
     // ── Icon ──
-    function createIcon(color) {
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="36" viewBox="0 0 28 36">
+    function createIcon(color, name) {
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="36" viewBox="0 0 28 36" style="display:block">
         <path d="M14 0C6.27 0 0 6.27 0 14c0 9.625 14 22 14 22S28 23.625 28 14C28 6.27 21.73 0 14 0z" fill="${color}" stroke="white" stroke-width="2"/>
         <circle cx="14" cy="14" r="5.5" fill="white"/>
       </svg>`;
+      const label = name
+        ? `<span style="position:absolute;left:32px;top:6px;background:white;color:#202124;font-size:11px;font-weight:600;font-family:'Segoe UI',sans-serif;padding:2px 8px;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,0.28);white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis;display:block;border:1px solid rgba(0,0,0,0.08)">${esc(name)}</span>`
+        : '';
       return L.divIcon({
         className: '',
-        html: svg,
+        html: `<div style="position:relative">${svg}${label}</div>`,
         iconSize: [28, 36],
         iconAnchor: [14, 36],
         popupAnchor: [0, -36],
@@ -959,7 +962,7 @@
       Object.values(leafletMarkers).forEach(m => map.removeLayer(m));
       leafletMarkers = {};
       locations.forEach(loc => {
-        const m = L.marker([loc.lat, loc.lng], { icon: createIcon(loc.color), draggable: true }).addTo(map);
+        const m = L.marker([loc.lat, loc.lng], { icon: createIcon(loc.color, loc.name), draggable: true }).addTo(map);
         m.bindPopup(makePopupHtml(loc), { maxWidth: 260 });
 
         m.on('dragend', async (e) => {
