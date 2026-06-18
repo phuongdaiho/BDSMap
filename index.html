@@ -972,6 +972,17 @@
       });
     }
 
+    // Hiện N ký tự đầu, nút ··· để xem đầy đủ; uid phải unique trong trang
+    function truncText(raw, max, uid) {
+      if (!raw || raw.length <= max) return esc(raw || '');
+      const s = 'tfs' + uid, f = 'tff' + uid;
+      const tog = (show, hide, lbl) =>
+        `<button onclick="document.getElementById('${show}').style.display='inline';document.getElementById('${hide}').style.display='none'" ` +
+        `style="background:none;border:none;color:#1a73e8;font-size:0.76rem;cursor:pointer;padding:0 3px;font-weight:700;vertical-align:middle">${lbl}</button>`;
+      return `<span id="${s}">${esc(raw.slice(0, max))}…${tog(f, s, '···')}</span>` +
+             `<span id="${f}" style="display:none">${esc(raw)}${tog(s, f, '↑')}</span>`;
+    }
+
     // ── Popup content ──
     function makePopupHtml(loc) {
       const imgs = loc.images?.length ? loc.images : (loc.image ? [loc.image] : []);
@@ -991,9 +1002,10 @@
           `<img class="popup-main-img" src="${esc(imgs[0])}" alt="" style="max-width:100%;max-height:200px;width:auto;height:auto;display:block;border-radius:4px" onerror="this.parentNode.style.display='none'" /></div>` +
           `<div style="display:flex;gap:5px;overflow-x:auto;padding:4px 0;margin-top:4px">${thumbs}</div></div>`;
       }
-      const desc = loc.desc ? `<div style="color:#555;font-size:0.82rem;margin-top:5px">${esc(loc.desc)}</div>` : '';
-      const note = loc.note ? `<div style="color:#777;font-size:0.78rem;margin-top:5px;padding-top:5px;border-top:1px solid #eee">${esc(loc.note)}</div>` : '';
-      const link = loc.link ? `<div style="margin-top:5px"><a href="${esc(loc.link)}" target="_blank" rel="noopener" style="color:#1a73e8;font-size:0.78rem;word-break:break-all">🔗 ${esc(loc.link)}</a></div>` : '';
+      const desc = loc.desc ? `<div style="color:#555;font-size:0.82rem;margin-top:5px">${truncText(loc.desc, 60, loc.id+'d')}</div>` : '';
+      const note = loc.note ? `<div style="color:#777;font-size:0.78rem;margin-top:5px;padding-top:5px;border-top:1px solid #eee">${truncText(loc.note, 60, loc.id+'n')}</div>` : '';
+      const linkDisplay = loc.link && loc.link.length > 40 ? esc(loc.link.slice(0, 40)) + '…' : esc(loc.link || '');
+      const link = loc.link ? `<div style="margin-top:5px"><a href="${esc(loc.link)}" target="_blank" rel="noopener" style="color:#1a73e8;font-size:0.78rem;word-break:break-all">🔗 ${linkDisplay}</a></div>` : '';
       const phone = loc.phone ? `<div style="margin-top:5px;display:flex;align-items:center;gap:6px"><span style="color:#333;font-size:0.82rem">📞 ${esc(loc.phone)}</span><a href="tel:${esc(loc.phone)}" style="background:#43a047;color:white;border-radius:6px;padding:2px 9px;font-size:0.75rem;text-decoration:none">Gọi</a></div>` : '';
       const coords = `<div style="color:#aaa;font-size:0.72rem;margin-top:4px">📍 ${loc.lat.toFixed(5)}, ${loc.lng.toFixed(5)}</div>`;
 
