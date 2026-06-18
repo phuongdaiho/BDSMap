@@ -135,6 +135,68 @@
     .gray-btn:hover { background: #3c4043; }
     .search-bar .sep { width: 1px; height: 22px; background: #e0e0e0; flex-shrink: 0; }
 
+    /* ── Layer control (floating, góc phải bản đồ) ── */
+    #layer-control {
+      position: absolute;
+      top: 80px;
+      right: 10px;
+      z-index: 1000;
+    }
+    #btn-layer-toggle {
+      width: 36px;
+      height: 36px;
+      background: white;
+      border: none;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.22);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #444;
+      transition: background 0.15s, color 0.15s;
+    }
+    #btn-layer-toggle:hover { background: #e8f0fe; color: #1a73e8; }
+    #btn-layer-toggle.picker-open { background: #1a73e8; color: white; }
+    .layer-picker {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+      z-index: 9999;
+      min-width: 190px;
+      overflow: hidden;
+      display: none;
+      flex-direction: column;
+    }
+    .layer-picker.open { display: flex; }
+    .layer-picker-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 16px;
+      font-size: 0.88rem;
+      color: #333;
+      cursor: pointer;
+      border: none;
+      background: none;
+      text-align: left;
+      font-family: inherit;
+      transition: background 0.15s;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .layer-picker-item:last-child { border-bottom: none; }
+    .layer-picker-item:hover { background: #f1f3f4; }
+    .layer-picker-item.active {
+      background: #e8f0fe;
+      color: #1557b0;
+      font-weight: 600;
+    }
+    .layer-picker-item .check { color: #1a73e8; font-size: 1rem; width: 16px; flex-shrink: 0; }
+
     /* ── Main area ── */
     .main {
       flex: 1;
@@ -577,7 +639,6 @@
     <button onclick="searchLocation()">Tìm kiếm</button>
     <div class="sep"></div>
     <button class="gray" onclick="goToMyLocation()">📍 Vị trí tôi</button>
-    <div class="sep"></div>
     <button id="btn-save-xml" class="gray" onclick="saveXML()" title="Lưu toàn bộ dữ liệu ra file data.xml">💾 Lưu XML</button>
     <label class="gray-btn" title="Mở file data.xml">
       📂 Mở XML
@@ -588,6 +649,18 @@
   <div class="main">
     <div id="map">
       <div id="map-hint">Click vào bản đồ để thêm địa điểm</div>
+      <div id="layer-control">
+        <button id="btn-layer-toggle" onclick="toggleLayerPicker()" title="Chế độ xem bản đồ">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+            <path d="M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27zM12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16z"/>
+          </svg>
+        </button>
+        <div class="layer-picker" id="layer-picker">
+          <button class="layer-picker-item active" id="layer-opt-street" onclick="setBaseLayer('street')"><span class="check">✓</span>🗺️ Bản đồ</button>
+          <button class="layer-picker-item" id="layer-opt-satellite" onclick="setBaseLayer('satellite')"><span class="check" style="visibility:hidden">✓</span>🛰️ Vệ tinh</button>
+          <button class="layer-picker-item" id="layer-opt-hybrid" onclick="setBaseLayer('hybrid')"><span class="check" style="visibility:hidden">✓</span>🛰️ Vệ tinh + đường</button>
+        </div>
+      </div>
     </div>
 
     <div id="sidebar-backdrop" onclick="toggleSidebar()"></div>
@@ -797,12 +870,31 @@
     ]);
 
     layerStreet.addTo(map);
+    let currentBaseLayer = 'street';
+    L.DomEvent.disableClickPropagation(document.getElementById('layer-control'));
 
-    L.control.layers(
-      { '🗺️ Bản đồ': layerStreet, '🛰️ Vệ tinh': layerSatellite, '🛰️ Vệ tinh + đường': layerHybrid },
-      {},
-      { position: 'topright', collapsed: false }
-    ).addTo(map);
+    function toggleLayerPicker() {
+      const open = document.getElementById('layer-picker').classList.toggle('open');
+      document.getElementById('btn-layer-toggle').classList.toggle('picker-open', open);
+    }
+
+    function setBaseLayer(mode) {
+      document.getElementById('layer-picker').classList.remove('open');
+      document.getElementById('btn-layer-toggle').classList.remove('picker-open');
+      if (mode === currentBaseLayer) return;
+      if (currentBaseLayer === 'street') map.removeLayer(layerStreet);
+      else if (currentBaseLayer === 'satellite') map.removeLayer(layerSatellite);
+      else if (currentBaseLayer === 'hybrid') map.removeLayer(layerHybrid);
+      if (mode === 'street') layerStreet.addTo(map);
+      else if (mode === 'satellite') layerSatellite.addTo(map);
+      else if (mode === 'hybrid') layerHybrid.addTo(map);
+      currentBaseLayer = mode;
+      ['street','satellite','hybrid'].forEach(m => {
+        const el = document.getElementById('layer-opt-' + m);
+        el.classList.toggle('active', m === mode);
+        el.querySelector('.check').style.visibility = m === mode ? 'visible' : 'hidden';
+      });
+    }
 
     // ── Đo khoảng cách ──
     function clearMeasure() {
@@ -1949,6 +2041,10 @@
     });
     document.addEventListener('click', (e) => {
       if (!e.target.closest('.search-wrap')) searchResults.style.display = 'none';
+      if (!e.target.closest('#layer-control')) {
+        document.getElementById('layer-picker').classList.remove('open');
+        document.getElementById('btn-layer-toggle').classList.remove('picker-open');
+      }
     });
 
     async function fetchSuggestions(query) {
