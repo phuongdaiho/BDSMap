@@ -792,22 +792,22 @@
           </div>
           <div class="form-group">
             <label>Pháp lý</label>
-            <select id="field-legal">
-              <option value="">-- Chọn --</option>
-              <option value="Sổ đỏ/Sổ hồng">Sổ đỏ/Sổ hồng</option>
-              <option value="Giấy tờ viết tay">Giấy tờ viết tay</option>
-              <option value="Có đóng thuế phường">Có đóng thuế phường</option>
-            </select>
+            <input type="text" id="field-legal" list="legal-options" placeholder="Chọn hoặc nhập..." autocomplete="off" />
+            <datalist id="legal-options">
+              <option value="Sổ đỏ/Sổ hồng">
+              <option value="Giấy tờ viết tay">
+              <option value="Có đóng thuế phường">
+            </datalist>
           </div>
         </div>
         <div class="form-group">
           <label>Nội thất</label>
-          <select id="field-interior">
-            <option value="">-- Chọn --</option>
-            <option value="Đầy đủ">Đầy đủ</option>
-            <option value="Không">Không</option>
-            <option value="Để lại toàn bộ nội thất">Để lại toàn bộ nội thất</option>
-          </select>
+          <input type="text" id="field-interior" list="interior-options" placeholder="Chọn hoặc nhập..." autocomplete="off" />
+          <datalist id="interior-options">
+            <option value="Đầy đủ">
+            <option value="Không">
+            <option value="Để lại toàn bộ nội thất">
+          </datalist>
         </div>
         <div class="form-group">
           <label>Màu marker</label>
