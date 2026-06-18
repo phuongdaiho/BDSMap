@@ -1010,20 +1010,20 @@
       const coords = `<div style="color:#aaa;font-size:0.72rem;margin-top:4px">📍 ${loc.lat.toFixed(5)}, ${loc.lng.toFixed(5)}</div>`;
 
       const row = (label, val, unit='') => val
-        ? `<div style="display:flex;gap:4px;font-size:0.78rem"><span style="color:#888;min-width:90px">${label}:</span><b style="color:#333">${esc(val)}${unit ? ' ' + unit : ''}</b></div>`
+        ? `<div style="display:flex;gap:4px;font-size:0.78rem;flex:1;min-width:0"><span style="color:#888;white-space:nowrap">${label}:</span><b style="color:#333">${esc(val)}${unit ? ' ' + unit : ''}</b></div>`
+        : '';
+      const row2 = (l1,v1,u1, l2,v2,u2) => (v1||v2)
+        ? `<div style="display:flex;gap:8px;font-size:0.78rem">${row(l1,v1,u1)}${row(l2,v2,u2)}</div>`
         : '';
       const landRows = [
-        row('Hướng',      loc.direction),
-        row('Diện tích',  loc.acreage, 'm²'),
-        row('Chiều ngang',loc.width,   'm'),
-        row('Chiều dài',  loc.length,  'm'),
-        row('Giá trị',    loc.price),
+        row2('Hướng', loc.direction, '', 'Diện tích', loc.acreage, 'm²'),
+        row2('Ngang',  loc.width, 'm',   'Dài',       loc.length,  'm'),
+        row('Giá trị', loc.price),
       ].filter(Boolean).join('');
       const assetRows = [
-        row('DT xây dựng', loc.buildArea, 'm²'),
-        row('DT sàn',      loc.floorArea, 'm²'),
-        row('Kết cấu',     loc.structure),
-        row('Công năng',   loc.usage),
+        row2('DT xây dựng', loc.buildArea, 'm²', 'DT sàn', loc.floorArea, 'm²'),
+        row('Kết cấu',  loc.structure),
+        row('Công năng',loc.usage),
       ].filter(Boolean).join('');
 
       const landSection = landRows ? `
