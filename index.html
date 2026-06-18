@@ -90,12 +90,7 @@
       padding: 6px 13px; font-size: 0.88rem; outline: none;
     }
     .search-bar input[type="text"]:focus { border-color: #1a73e8; }
-    .search-bar input[type="number"] {
-      width: 88px;
-      border: 1px solid #ddd; border-radius: 20px;
-      padding: 6px 11px; font-size: 0.83rem; outline: none; text-align: center;
-    }
-    .search-bar button {
+.search-bar button {
       background: #1a73e8; color: white; border: none;
       border-radius: 20px; padding: 6px 14px;
       font-size: 0.83rem; cursor: pointer; white-space: nowrap;
@@ -576,14 +571,10 @@
 
   <div class="search-bar">
     <div class="search-wrap">
-      <input type="text" id="search-input" placeholder="Tìm kiếm địa điểm..." autocomplete="off" />
+      <input type="text" id="search-input" placeholder="Tìm địa điểm hoặc nhập tọa độ (lat, lng)..." autocomplete="off" />
       <div id="search-results"></div>
     </div>
     <button onclick="searchLocation()">Tìm kiếm</button>
-    <div class="sep"></div>
-    <input type="number" id="input-lat" placeholder="Lat" step="0.0001" />
-    <input type="number" id="input-lng" placeholder="Lng" step="0.0001" />
-    <button onclick="goToCoords()">Đến tọa độ</button>
     <div class="sep"></div>
     <button class="gray" onclick="goToMyLocation()">📍 Vị trí tôi</button>
     <div class="sep"></div>
@@ -1940,6 +1931,9 @@
     });
 
     async function fetchSuggestions(query) {
+      if (/^\s*-?\d+(?:\.\d+)?\s*[,\s]\s*-?\d+(?:\.\d+)?\s*$/.test(query)) {
+        searchResults.style.display = 'none'; return;
+      }
       try {
         const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&accept-language=vi`);
         const data = await res.json();
@@ -2010,23 +2004,21 @@
       const query = searchInput.value.trim();
       if (!query) return;
       searchResults.style.display = 'none';
+      // Nhận biết tọa độ: "21.0285, 105.8542" hoặc "21.0285 105.8542"
+      const coordMatch = query.match(/^\s*(-?\d+(?:\.\d+)?)\s*[,\s]\s*(-?\d+(?:\.\d+)?)\s*$/);
+      if (coordMatch) {
+        const lat = parseFloat(coordMatch[1]), lng = parseFloat(coordMatch[2]);
+        if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+          map.setView([lat, lng], 15);
+          return;
+        }
+      }
       try {
         const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1&accept-language=vi`);
         const data = await res.json();
         if (data.length) selectResult(data[0]);
         else alert('Không tìm thấy địa điểm: ' + query);
       } catch { alert('Lỗi kết nối. Vui lòng thử lại.'); }
-    }
-
-    // ── Tọa độ ──
-    function goToCoords() {
-      const lat = parseFloat(document.getElementById('input-lat').value);
-      const lng = parseFloat(document.getElementById('input-lng').value);
-      if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-        alert('Tọa độ không hợp lệ.\nLat: -90 đến 90 | Lng: -180 đến 180');
-        return;
-      }
-      map.setView([lat, lng], 15);
     }
 
     // ── Vị trí tôi ──
