@@ -1188,6 +1188,11 @@
 
         m.on('dragend', async (e) => {
           const { lat, lng } = e.target.getLatLng();
+          const origLat = loc.lat, origLng = loc.lng;
+          if (!confirm(`Thay đổi tọa độ của "${loc.name}"?\n\nTừ: ${origLat.toFixed(5)}, ${origLng.toFixed(5)}\nĐến: ${lat.toFixed(5)}, ${lng.toFixed(5)}`)) {
+            e.target.setLatLng([origLat, origLng]);
+            return;
+          }
           if (editingId === loc.id) {
             document.getElementById('modal-lat').value = lat.toFixed(6);
             document.getElementById('modal-lng').value = lng.toFixed(6);
