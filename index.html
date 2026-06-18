@@ -784,6 +784,31 @@
           <label>Công năng</label>
           <input type="text" id="field-usage" placeholder="VD: Nhà ở, Thương mại, Đất nông nghiệp..." />
         </div>
+        <div class="form-section-title">Pháp lý & Nội thất</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Lộ giới</label>
+            <input type="text" id="field-roadwidth" placeholder="VD: 6m, 12m..." />
+          </div>
+          <div class="form-group">
+            <label>Pháp lý</label>
+            <select id="field-legal">
+              <option value="">-- Chọn --</option>
+              <option value="Sổ đỏ/Sổ hồng">Sổ đỏ/Sổ hồng</option>
+              <option value="Giấy tờ viết tay">Giấy tờ viết tay</option>
+              <option value="Có đóng thuế phường">Có đóng thuế phường</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Nội thất</label>
+          <select id="field-interior">
+            <option value="">-- Chọn --</option>
+            <option value="Đầy đủ">Đầy đủ</option>
+            <option value="Không">Không</option>
+            <option value="Để lại toàn bộ nội thất">Để lại toàn bộ nội thất</option>
+          </select>
+        </div>
         <div class="form-group">
           <label>Màu marker</label>
           <div class="color-picker" id="color-picker">
@@ -1114,12 +1139,14 @@
       const landRows = [
         row2('Hướng', loc.direction, '', 'Diện tích', loc.acreage, 'm²'),
         row2('Ngang',  loc.width, 'm',   'Dài',       loc.length,  'm'),
+        row2('Lộ giới', loc.roadWidth, '', 'Pháp lý', loc.legal, ''),
         row('Giá trị', loc.price),
       ].filter(Boolean).join('');
       const assetRows = [
         row2('DT xây dựng', loc.buildArea, 'm²', 'DT sàn', loc.floorArea, 'm²'),
         row('Kết cấu',  loc.structure),
         row('Công năng',loc.usage),
+        row('Nội thất', loc.interior),
       ].filter(Boolean).join('');
 
       const landSection = landRows ? `
@@ -1384,6 +1411,9 @@
     <floorArea>${xmlEsc(loc.floorArea)}</floorArea>
     <structure>${xmlEsc(loc.structure)}</structure>
     <usage>${xmlEsc(loc.usage)}</usage>
+    <roadWidth>${xmlEsc(loc.roadWidth)}</roadWidth>
+    <legal>${xmlEsc(loc.legal)}</legal>
+    <interior>${xmlEsc(loc.interior)}</interior>
     <phone>${xmlEsc(loc.phone)}</phone>
   </location>`).join('\n');
       return `<?xml version="1.0" encoding="UTF-8"?>\n<locations>\n${rows}\n</locations>`;
@@ -1415,6 +1445,9 @@
           floorArea: get('floorArea'),
           structure: get('structure'),
           usage:     get('usage'),
+          roadWidth: get('roadWidth'),
+          legal:     get('legal'),
+          interior:  get('interior'),
           phone:     get('phone'),
         };
       }).filter(loc => !isNaN(loc.lat) && !isNaN(loc.lng) && loc.name);
@@ -1543,6 +1576,9 @@
       set('field-floorarea', data.floorArea);
       set('field-structure', data.structure);
       set('field-usage',     data.usage);
+      set('field-roadwidth', data.roadWidth);
+      set('field-legal',     data.legal);
+      set('field-interior',  data.interior);
       set('field-phone',     data.phone);
       const phoneBtn = document.getElementById('call-btn-modal');
       if (data.phone) { phoneBtn.href = 'tel:' + data.phone; phoneBtn.style.display = 'inline-block'; }
@@ -1720,6 +1756,9 @@
         floorArea: get('field-floorarea'),
         structure: get('field-structure'),
         usage:     get('field-usage'),
+        roadWidth: get('field-roadwidth'),
+        legal:     get('field-legal'),
+        interior:  get('field-interior'),
         phone:     get('field-phone'),
         color:     selectedColor,
       };
@@ -1917,6 +1956,20 @@
       else if (/đất\s*nền/i.test(t)) result.usage = 'Đất nền';
       else if (/đất\s*nông\s*nghiệp/i.test(t)) result.usage = 'Đất nông nghiệp';
 
+      // Lộ giới
+      const rwM = t.match(/(?:lộ\s*giới|đường\s*rộng)[:\s]*([\d.,]+)\s*m/i);
+      if (rwM) result.roadWidth = rwM[1].replace(',','.') + 'm';
+
+      // Pháp lý
+      if (/sổ\s*đỏ|sổ\s*hồng/i.test(t)) result.legal = 'Sổ đỏ/Sổ hồng';
+      else if (/viết\s*tay/i.test(t)) result.legal = 'Giấy tờ viết tay';
+      else if (/đóng\s*thuế|nộp\s*thuế/i.test(t)) result.legal = 'Có đóng thuế phường';
+
+      // Nội thất
+      if (/nội\s*thất\s*đầy\s*đủ|đầy\s*đủ\s*nội\s*thất/i.test(t)) result.interior = 'Đầy đủ';
+      else if (/để\s*lại.*nội\s*thất/i.test(t)) result.interior = 'Để lại toàn bộ nội thất';
+      else if (/không\s*nội\s*thất|nội\s*thất.*không/i.test(t)) result.interior = 'Không';
+
       // Số điện thoại (mobile VN: 0[3-9]xxxxxxxx hoặc +84...)
       const ph1 = t.match(/(?<!\d)0[3-9]\d\d[\s.-]?\d{3}[\s.-]?\d{3}(?!\d)/);
       const ph2 = t.match(/(?<!\d)\+84[\s.-]?[3-9]\d\d[\s.-]?\d{3}[\s.-]?\d{3}(?!\d)/);
@@ -1940,6 +1993,9 @@
         ['field-buildarea', result.buildArea, 'DT xây dựng'],
         ['field-floorarea', result.floorArea, 'DT sàn'],
         ['field-usage',     result.usage,     'Công năng'],
+        ['field-roadwidth', result.roadWidth, 'Lộ giới'],
+        ['field-legal',     result.legal,     'Pháp lý'],
+        ['field-interior',  result.interior,  'Nội thất'],
         ['field-phone',     result.phone,     'Điện thoại'],
       ];
       const dirEl = document.getElementById('field-direction');
