@@ -135,11 +135,11 @@
     .gray-btn:hover { background: #3c4043; }
     .search-bar .sep { width: 1px; height: 22px; background: #e0e0e0; flex-shrink: 0; }
 
-    /* ── Layer control (floating, góc phải bản đồ) ── */
+    /* ── Layer control (floating, trên nút đo khoảng cách, góc dưới trái) ── */
     #layer-control {
       position: absolute;
-      top: 80px;
-      right: 10px;
+      bottom: 56px;
+      left: 10px;
       z-index: 1000;
     }
     #btn-layer-toggle {
@@ -160,8 +160,9 @@
     #btn-layer-toggle.picker-open { background: #1a73e8; color: white; }
     .layer-picker {
       position: absolute;
-      top: calc(100% + 6px);
-      right: 0;
+      bottom: calc(100% + 6px);
+      top: auto;
+      left: 0;
       background: white;
       border: 1px solid #e0e0e0;
       border-radius: 12px;
@@ -845,7 +846,10 @@
     let measureGroup = null;
 
     // ── Map ──
-    const map = L.map('map').setView([21.0285, 105.8542], 13);
+    const map = L.map('map', {
+      zoomControl: false,
+    }).setView([21.0285, 105.8542], 13);
+    L.control.zoom({ zoomInTitle: 'Phóng to', zoomOutTitle: 'Thu nhỏ' }).addTo(map);
     measureGroup = L.layerGroup().addTo(map);
 
     const layerStreet = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
