@@ -520,6 +520,25 @@
     .result-item:hover { background: #f0f6ff; }
     .result-item:last-child { border-bottom: none; }
 
+    /* ── Measure control ── */
+    .measure-btn {
+      background: white;
+      border: none;
+      width: 36px; height: 36px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      font-size: 17px;
+      border-radius: 4px;
+      box-shadow: 0 1px 5px rgba(0,0,0,0.35);
+      transition: background 0.15s;
+    }
+    .measure-btn:hover { background: #f0f4ff; }
+    .measure-btn.active { background: #1a73e8; }
+    .leaflet-bottom.leaflet-left .leaflet-control.measure-wrap {
+      margin-bottom: 12px;
+      margin-left: 10px;
+    }
+
     /* ── Compass rose ── */
     .north-arrow {
       pointer-events: none;
@@ -757,9 +776,13 @@
     let editingId = null;       // id đang chỉnh sửa
     let selectedColor = '#e53935';
     let sidebarVisible = false;
+    let measureMode = false;
+    let measurePoints = [];
+    let measureGroup = null;
 
     // ── Map ──
     const map = L.map('map').setView([21.0285, 105.8542], 13);
+    measureGroup = L.layerGroup().addTo(map);
 
     const layerStreet = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -789,6 +812,68 @@
       {},
       { position: 'topright', collapsed: false }
     ).addTo(map);
+
+    // ── Đo khoảng cách ──
+    function clearMeasure() {
+      measureGroup.clearLayers();
+      measurePoints = [];
+    }
+
+    function handleMeasureClick(latlng) {
+      const ptIcon = L.divIcon({
+        className: '',
+        html: `<div style="width:11px;height:11px;background:#1a73e8;border:2.5px solid white;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.4)"></div>`,
+        iconSize: [11, 11], iconAnchor: [5, 5],
+      });
+      measureGroup.addLayer(L.marker(latlng, { icon: ptIcon, interactive: false }));
+      measurePoints.push(latlng);
+
+      if (measurePoints.length === 1) {
+        showHint('Nhấp điểm thứ hai để đo khoảng cách');
+      } else {
+        const [p1, p2] = measurePoints;
+        const dist = map.distance(p1, p2);
+        const distStr = dist < 1000
+          ? Math.round(dist) + ' m'
+          : (dist / 1000).toFixed(2) + ' km';
+
+        measureGroup.addLayer(
+          L.polyline([p1, p2], { color: '#1a73e8', weight: 2.5, dashArray: '7,5', opacity: 0.85, interactive: false })
+        );
+
+        const mid = L.latLng((p1.lat + p2.lat) / 2, (p1.lng + p2.lng) / 2);
+        measureGroup.addLayer(L.marker(mid, {
+          icon: L.divIcon({
+            className: '',
+            html: `<div style="transform:translate(-50%,-50%);background:#1a73e8;color:white;font-size:12px;font-weight:700;padding:4px 11px;border-radius:12px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.3);font-family:'Segoe UI',sans-serif">${distStr}</div>`,
+            iconSize: [0, 0], iconAnchor: [0, 0],
+          }),
+          interactive: false,
+        }));
+
+        showHint('📏 ' + distStr + ' — nhấp tiếp để đo đoạn mới');
+        measurePoints = [];
+      }
+    }
+
+    new (L.Control.extend({
+      options: { position: 'bottomleft' },
+      onAdd() {
+        const wrap = L.DomUtil.create('div', 'measure-wrap leaflet-control');
+        const btn = L.DomUtil.create('button', 'measure-btn', wrap);
+        btn.innerHTML = '📏';
+        btn.title = 'Đo khoảng cách';
+        L.DomEvent.disableClickPropagation(wrap);
+        L.DomEvent.on(btn, 'click', () => {
+          measureMode = !measureMode;
+          clearMeasure();
+          btn.classList.toggle('active', measureMode);
+          map.getContainer().style.cursor = measureMode ? 'crosshair' : '';
+          showHint(measureMode ? 'Nhấp vào bản đồ để chọn điểm đầu' : 'Đã tắt chế độ đo');
+        });
+        return wrap;
+      },
+    }))().addTo(map);
 
     // ── Compass rose (tĩnh, 8 hướng) ──
     new (L.Control.extend({
@@ -848,6 +933,7 @@
 
     // Click map → mở modal thêm
     map.on('click', (e) => {
+      if (measureMode) { handleMeasureClick(e.latlng); return; }
       pendingLatLng = e.latlng;
       editingId = null;
       const data = pendingTextData
