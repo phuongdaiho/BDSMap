@@ -1161,20 +1161,27 @@
     function makePopupHtml(loc) {
       const imgs = loc.images?.length ? loc.images : (loc.image ? [loc.image] : []);
       let image = '';
-      const imgWrap = (src, cls='') =>
-        `<div style="width:100%;background:#f5f5f5;border-radius:6px;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-top:6px;min-height:40px">` +
-        `<img ${cls} src="${esc(src)}" alt="" style="max-width:100%;max-height:200px;width:auto;height:auto;display:block;border-radius:4px" onerror="this.parentNode.style.display='none'" /></div>`;
-      if (imgs.length === 1) {
-        image = imgWrap(imgs[0]);
-      } else if (imgs.length > 1) {
-        const thumbs = imgs.map(u =>
-          `<div style="flex-shrink:0;width:72px;height:72px;background:#f5f5f5;border-radius:6px;border:1px solid #ddd;display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer" onclick="this.closest('.popup-img-wrap').querySelector('.popup-main-img').src='${esc(u)}'">` +
-          `<img src="${esc(u)}" alt="" style="max-width:72px;max-height:72px;width:auto;height:auto;display:block;border-radius:4px" onerror="this.parentNode.style.display='none'" /></div>`
-        ).join('');
-        image = `<div class="popup-img-wrap" style="margin-top:6px">` +
-          `<div style="width:100%;background:#f5f5f5;border-radius:6px;display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:40px">` +
-          `<img class="popup-main-img" src="${esc(imgs[0])}" alt="" style="max-width:100%;max-height:200px;width:auto;height:auto;display:block;border-radius:4px" onerror="this.parentNode.style.display='none'" /></div>` +
-          `<div style="display:flex;gap:5px;overflow-x:auto;padding:4px 0;margin-top:4px">${thumbs}</div></div>`;
+      if (imgs.length > 0) {
+        const imgWrap = (src, cls='') =>
+          `<div style="width:100%;background:#f5f5f5;border-radius:6px;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-top:6px;min-height:40px">` +
+          `<img ${cls} src="${esc(src)}" alt="" style="max-width:100%;max-height:200px;width:auto;height:auto;display:block;border-radius:4px" onerror="this.parentNode.style.display='none'" /></div>`;
+        let inner = '';
+        if (imgs.length === 1) {
+          inner = imgWrap(imgs[0]);
+        } else {
+          const thumbs = imgs.map(u =>
+            `<div style="flex-shrink:0;width:72px;height:72px;background:#f5f5f5;border-radius:6px;border:1px solid #ddd;display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer" onclick="this.closest('.popup-img-wrap').querySelector('.popup-main-img').src='${esc(u)}'">` +
+            `<img src="${esc(u)}" alt="" style="max-width:72px;max-height:72px;width:auto;height:auto;display:block;border-radius:4px" onerror="this.parentNode.style.display='none'" /></div>`
+          ).join('');
+          inner = `<div class="popup-img-wrap">` +
+            `<div style="width:100%;background:#f5f5f5;border-radius:6px;display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:40px">` +
+            `<img class="popup-main-img" src="${esc(imgs[0])}" alt="" style="max-width:100%;max-height:200px;width:auto;height:auto;display:block;border-radius:4px" onerror="this.parentNode.style.display='none'" /></div>` +
+            `<div style="display:flex;gap:5px;overflow-x:auto;padding:4px 0;margin-top:4px">${thumbs}</div></div>`;
+        }
+        const pid = 'pi' + loc.id;
+        const lbl = imgs.length === 1 ? '1 ảnh' : imgs.length + ' ảnh';
+        image = `<button onclick="var d=document.getElementById('${pid}'),s=d.style.display==='none';d.style.display=s?'block':'none';this.innerHTML=s?'▲ ${lbl}':'▼ ${lbl}'" style="margin-top:2px;background:#f1f3f4;border:1px solid #e0e0e0;border-radius:6px;padding:3px 10px;font-size:0.78rem;cursor:pointer;color:#555;width:100%;text-align:left">▼ ${lbl}</button>` +
+          `<div id="${pid}" style="display:none">${inner}</div>`;
       }
       const desc = loc.desc ? `<div style="color:#555;font-size:0.82rem;margin-top:5px">${truncText(loc.desc, 60, loc.id+'d')}</div>` : '';
       const note = loc.note ? `<div style="color:#777;font-size:0.78rem;margin-top:5px;padding-top:5px;border-top:1px solid #eee">${truncText(loc.note, 60, loc.id+'n')}</div>` : '';
@@ -1216,7 +1223,7 @@
       const svUrl = `https://www.google.com/maps/@${loc.lat},${loc.lng},3a,75y,90t/data=!3m6!1e1`;
       return `<div style="font-family:sans-serif;min-width:200px;max-width:260px;padding:2px 0">
         ${image}
-        <strong style="font-size:0.92rem;color:#202124;display:block;margin-top:${imgs.length ? '6px' : '0'}">${esc(loc.name)}</strong>
+        <strong style="font-size:0.92rem;color:#202124;display:block;margin-top:6px">${esc(loc.name)}</strong>
         ${desc}${note}${link}${phone}${coords}${landSection}${assetSection}
         <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
           <button onclick="editLocation(${loc.id})" style="border:1px solid #1a73e8;background:#e8f0fe;color:#1a73e8;border-radius:6px;padding:3px 10px;font-size:0.78rem;cursor:pointer">Sửa</button>
