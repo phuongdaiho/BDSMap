@@ -1,17 +1,19 @@
-const CACHE = 'bandog-v8';
+const CACHE = 'bandog-v9';
 const CORE = [
   './index.html',
   './manifest.json',
-  'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css',
-  'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css',
-  'https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css',
-  'https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js',
+  './lib/leaflet.css',
+  './lib/leaflet.js',
+  './lib/MarkerCluster.css',
+  './lib/MarkerCluster.Default.css',
+  './lib/leaflet.markercluster.min.js',
 ];
 
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(CORE)).then(() => self.skipWaiting())
+    caches.open(CACHE)
+      .then(c => Promise.allSettled(CORE.map(url => c.add(url))))
+      .then(() => self.skipWaiting())
   );
 });
 
@@ -37,7 +39,7 @@ self.addEventListener('fetch', e => {
     );
     return;
   }
-  // App shell + CDN libs: cache first
+  // App shell + local libs: cache first
   e.respondWith(
     caches.match(e.request).then(r => r || fetch(e.request).then(res => {
       const clone = res.clone();
