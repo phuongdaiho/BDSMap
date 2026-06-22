@@ -16,8 +16,8 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css" />
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
@@ -1007,7 +1007,7 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
   <script>
     // ── Firebase ──
     firebase.initializeApp({
@@ -1074,18 +1074,21 @@
     L.control.zoom({ zoomInTitle: 'Phóng to', zoomOutTitle: 'Thu nhỏ' }).addTo(map);
     measureGroup = L.layerGroup().addTo(map);
 
-    const clusterGroup = L.markerClusterGroup({
-      maxClusterRadius: 50,
-      disableClusteringAtZoom: 17,
-      spiderfyOnMaxZoom: true,
-      showCoverageOnHover: false,
-    }).addTo(map);
-    const communityClusterGroup = L.markerClusterGroup({
-      maxClusterRadius: 50,
-      disableClusteringAtZoom: 17,
-      spiderfyOnMaxZoom: true,
-      showCoverageOnHover: false,
-    }).addTo(map);
+    function makeClusterGroup() {
+      if (typeof L.markerClusterGroup === 'function') {
+        return L.markerClusterGroup({
+          maxClusterRadius: 50,
+          disableClusteringAtZoom: 17,
+          spiderfyOnMaxZoom: true,
+          showCoverageOnHover: false,
+        });
+      }
+      const g = L.layerGroup();
+      g.zoomToShowLayer = (_m, cb) => { if (cb) cb(); };
+      return g;
+    }
+    const clusterGroup = makeClusterGroup().addTo(map);
+    const communityClusterGroup = makeClusterGroup().addTo(map);
 
     const layerStreet = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
