@@ -963,7 +963,7 @@
       if (isPolygon) {
         measureGroup.addLayer(L.polygon(pts, {
           color: '#2e7d32', weight: 2.5, dashArray: '7,5',
-          fillColor: '#43a047', fillOpacity: 0.12, interactive: false,
+          fill: false, interactive: false,
         }));
       } else {
         measureGroup.addLayer(L.polyline(pts, {
