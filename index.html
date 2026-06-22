@@ -596,6 +596,19 @@
       margin-bottom: 12px;
       margin-left: 10px;
     }
+    .measure-label {
+      background: #1a73e8 !important;
+      color: white !important;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 5px 8px !important;
+      border-radius: 6px !important;
+      border: none !important;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3) !important;
+      white-space: nowrap;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    .measure-label::before { display: none !important; }
 
     /* ── Compass rose ── */
     .north-arrow {
@@ -977,14 +990,9 @@
 
       edges.forEach(([p1, p2]) => {
         const mid = L.latLng((p1.lat + p2.lat) / 2, (p1.lng + p2.lng) / 2);
-        measureGroup.addLayer(L.marker(mid, {
-          icon: L.divIcon({
-            className: '',
-            html: `<div style="transform:translate(-50%,-50%);background:#1a73e8;color:white;font-size:11px;font-weight:700;padding:5px 8px;border-radius:6px;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.3);font-family:'Segoe UI',sans-serif">${fmtDist(map.distance(p1, p2))}</div>`,
-            iconSize: [0, 0], iconAnchor: [0, 0],
-          }),
-          interactive: false,
-        }));
+        const m = L.marker(mid, { icon: L.divIcon({ className: '', iconSize: [0, 0] }), interactive: false });
+        m.bindTooltip(fmtDist(map.distance(p1, p2)), { permanent: true, direction: 'center', className: 'measure-label', opacity: 1 });
+        measureGroup.addLayer(m);
       });
 
       if (isPolygon) {
@@ -992,14 +1000,9 @@
         const cx = pts.reduce((s, p) => s + p.lat, 0) / pts.length;
         const cy = pts.reduce((s, p) => s + p.lng, 0) / pts.length;
         const areaStr = area < 10000 ? Math.round(area) + ' m²' : (area / 10000).toFixed(2) + ' ha';
-        measureGroup.addLayer(L.marker([cx, cy], {
-          icon: L.divIcon({
-            className: '',
-            html: `<div style="transform:translate(-50%,-50%);background:#1a73e8;color:white;font-size:13px;font-weight:700;padding:5px 8px;border-radius:6px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.35);font-family:'Segoe UI',sans-serif">DT: ${areaStr}</div>`,
-            iconSize: [0, 0], iconAnchor: [0, 0],
-          }),
-          interactive: false,
-        }));
+        const am = L.marker([cx, cy], { icon: L.divIcon({ className: '', iconSize: [0, 0] }), interactive: false });
+        am.bindTooltip(`DT: ${areaStr}`, { permanent: true, direction: 'center', className: 'measure-label', opacity: 1 });
+        measureGroup.addLayer(am);
       }
     }
 
