@@ -702,6 +702,19 @@
       display: none;
     }
     .auth-error.show { display: block; }
+    .auth-success {
+      background: #e6f4ea; color: #1e6823; border-radius: 8px;
+      padding: 8px 12px; font-size: 0.82rem; margin-bottom: 10px;
+      display: none;
+    }
+    .auth-success.show { display: block; }
+    .auth-forgot {
+      text-align: right; margin-top: -6px; margin-bottom: 10px;
+    }
+    .auth-forgot a {
+      font-size: 0.8rem; color: #1a73e8; text-decoration: none; cursor: pointer;
+    }
+    .auth-forgot a:hover { text-decoration: underline; }
     .auth-divider {
       text-align: center; color: #bbb; font-size: 0.78rem;
       margin: 12px 0; display: flex; align-items: center; gap: 8px;
@@ -831,8 +844,12 @@
         <button class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">Đăng ký</button>
       </div>
       <div class="auth-error" id="auth-error"></div>
+      <div class="auth-success" id="auth-success"></div>
       <input class="auth-input" type="email" id="auth-email" placeholder="Email" autocomplete="email" />
       <input class="auth-input" type="password" id="auth-password" placeholder="Mật khẩu" autocomplete="current-password" />
+      <div class="auth-forgot" id="auth-forgot-wrap">
+        <a onclick="forgotPassword()">Quên mật khẩu?</a>
+      </div>
       <button class="auth-btn-primary" id="auth-submit-btn" onclick="authSubmit()">Đăng nhập</button>
       <div class="auth-divider">hoặc</div>
       <button class="auth-btn-guest" onclick="continueAsGuest()">👤 Tiếp tục không cần đăng nhập</button>
@@ -2750,6 +2767,7 @@
 
     function openAuthModal() {
       document.getElementById('auth-error').classList.remove('show');
+      document.getElementById('auth-success').classList.remove('show');
       document.getElementById('auth-email').value = '';
       document.getElementById('auth-password').value = '';
       if (currentUser) {
@@ -2763,6 +2781,7 @@
         document.querySelector('.auth-btn-guest').style.display = 'none';
         document.getElementById('auth-email').style.display = 'none';
         document.getElementById('auth-password').style.display = 'none';
+        document.getElementById('auth-forgot-wrap').style.display = 'none';
       } else {
         switchAuthTab('login');
         document.getElementById('tab-login').style.display = '';
@@ -2787,6 +2806,28 @@
       document.getElementById('tab-register').classList.toggle('active', tab === 'register');
       document.getElementById('auth-submit-btn').textContent = tab === 'login' ? 'Đăng nhập' : 'Đăng ký';
       document.getElementById('auth-error').classList.remove('show');
+      document.getElementById('auth-success').classList.remove('show');
+      document.getElementById('auth-forgot-wrap').style.display = tab === 'login' ? '' : 'none';
+    }
+
+    async function forgotPassword() {
+      const email = document.getElementById('auth-email').value.trim();
+      const errEl = document.getElementById('auth-error');
+      const sucEl = document.getElementById('auth-success');
+      errEl.classList.remove('show');
+      sucEl.classList.remove('show');
+      if (!email) { showAuthError('Vui lòng nhập email trước.'); return; }
+      try {
+        await auth.sendPasswordResetEmail(email);
+        sucEl.textContent = `Email đặt lại mật khẩu đã gửi đến ${email}. Kiểm tra hộp thư (kể cả Spam).`;
+        sucEl.classList.add('show');
+      } catch (err) {
+        const msg = {
+          'auth/user-not-found': 'Email chưa được đăng ký.',
+          'auth/invalid-email':  'Email không hợp lệ.',
+        }[err.code] || err.message;
+        showAuthError(msg);
+      }
     }
 
     async function authSubmit() {
