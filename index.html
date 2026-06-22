@@ -720,6 +720,44 @@
     }
     .mode-dot.guest { background: #fbbc04; }
     .mode-dot.user  { background: #34a853; }
+
+    /* ── Sidebar tabs ── */
+    .sidebar-tabs { display: flex; gap: 0; flex: 1; }
+    .sidebar-tab {
+      flex: 1; background: none; border: none; padding: 7px 10px;
+      font-size: 0.8rem; font-family: inherit; cursor: pointer;
+      color: #888; font-weight: 600; border-bottom: 2px solid transparent;
+      transition: color 0.2s, border-color 0.2s; white-space: nowrap;
+    }
+    .sidebar-tab.active { color: #1a73e8; border-bottom-color: #1a73e8; }
+
+    /* ── Public toggle in modal ── */
+    .public-toggle-row { display: flex; align-items: center; gap: 10px; }
+    .toggle-switch {
+      position: relative; width: 40px; height: 22px; flex-shrink: 0; cursor: pointer;
+    }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .toggle-track {
+      position: absolute; inset: 0; background: #ccc; border-radius: 22px; transition: background 0.2s;
+    }
+    .toggle-switch input:checked + .toggle-track { background: #43a047; }
+    .toggle-thumb {
+      position: absolute; left: 2px; top: 2px; width: 18px; height: 18px;
+      background: white; border-radius: 50%; transition: transform 0.2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .toggle-switch input:checked + .toggle-track .toggle-thumb { transform: translateX(18px); }
+    #public-toggle-label { font-size: 0.82rem; color: #666; }
+
+    /* ── Public badge on sidebar item ── */
+    .loc-public-badge {
+      display: inline-block; font-size: 0.68rem; background: #e8f5e9; color: #2e7d32;
+      border: 1px solid #c8e6c9; border-radius: 10px; padding: 1px 6px; margin-top: 2px; font-weight: 600;
+    }
+
+    /* ── Community list ── */
+    #community-list { flex: 1; overflow-y: auto; padding: 6px 0; }
+    .loc-community-owner { font-size: 0.7rem; color: #43a047; margin-top: 2px; }
   </style>
 </head>
 <body>
@@ -784,7 +822,10 @@
         </div>
       </div>
       <div class="sidebar-header">
-        <span>Danh sách địa điểm</span>
+        <div class="sidebar-tabs">
+          <button class="sidebar-tab active" id="tab-mine" onclick="switchSidebarTab('mine')">📋 Của tôi</button>
+          <button class="sidebar-tab" id="tab-community" onclick="switchSidebarTab('community')">🌍 Cộng đồng</button>
+        </div>
         <select id="group-by" title="Nhóm theo trường">
           <option value="">☰ Danh sách</option>
           <option value="area">📍 Khu vực</option>
@@ -797,6 +838,9 @@
       </div>
       <div id="location-list">
         <div class="sidebar-empty">Chưa có địa điểm nào.<br/>Click lên bản đồ để thêm.</div>
+      </div>
+      <div id="community-list" style="display:none">
+        <div class="sidebar-empty">Chưa có địa điểm công khai nào<br/>trong khu vực này.</div>
       </div>
     </div>
   </div>
@@ -942,6 +986,16 @@
             <div class="color-dot" data-color="#8e24aa" style="background:#8e24aa" title="Tím"></div>
           </div>
         </div>
+        <div class="form-group" id="public-share-group" style="display:none">
+          <label>Chia sẻ cộng đồng</label>
+          <div class="public-toggle-row">
+            <label class="toggle-switch">
+              <input type="checkbox" id="field-ispublic" />
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </label>
+            <span id="public-toggle-label">Riêng tư</span>
+          </div>
+        </div>
         <div class="form-group">
           <label>Tọa độ</label>
           <div style="display:flex;gap:8px">
@@ -998,10 +1052,20 @@
     let measureMode = false;
     let measurePoints = [];
     let measureGroup = null;
+    let communityLocations = [];
+    let communityMarkers = {};
+    let communityUnsub = null;
+    let sidebarTab = 'mine';
+    let communityVpTimer;
 
     // Trả về collection của user hiện tại
     function userCol() {
       return db.collection('users').doc(currentUser.uid).collection('locations');
+    }
+
+    // Collection địa điểm công khai (readable bởi tất cả)
+    function publicCol() {
+      return db.collection('public_locations');
     }
 
     // Guest mode: persist locations array vào localStorage
@@ -1278,6 +1342,37 @@
       });
     }
 
+    function createCommunityIcon(color, name) {
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="36" viewBox="0 0 28 36" style="display:block">
+        <path d="M14 0C6.27 0 0 6.27 0 14c0 9.625 14 22 14 22S28 23.625 28 14C28 6.27 21.73 0 14 0z" fill="${color}" stroke="white" stroke-width="2" opacity="0.75"/>
+        <circle cx="14" cy="14" r="5.5" fill="white" opacity="0.9"/>
+      </svg>`;
+      const badge = `<span style="position:absolute;top:-5px;right:-7px;font-size:11px;line-height:1;background:white;border-radius:50%;padding:1px;box-shadow:0 1px 3px rgba(0,0,0,0.25)">🌍</span>`;
+      const label = name
+        ? `<span style="position:absolute;left:32px;top:6px;background:white;color:#202124;font-size:11px;font-weight:600;font-family:'Segoe UI',sans-serif;padding:2px 8px;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,0.28);white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis;display:block;border:1px solid rgba(0,0,0,0.08)">${esc(name)}</span>`
+        : '';
+      return L.divIcon({
+        className: '',
+        html: `<div style="position:relative">${svg}${badge}${label}</div>`,
+        iconSize: [28, 36],
+        iconAnchor: [14, 36],
+        popupAnchor: [0, -36],
+      });
+    }
+
+    function addCommunityMarker(loc) {
+      if (communityMarkers[loc.id]) { map.removeLayer(communityMarkers[loc.id]); delete communityMarkers[loc.id]; }
+      if (leafletMarkers[loc.id]) return; // already shown as personal marker
+      const m = L.marker([loc.lat, loc.lng], { icon: createCommunityIcon(loc.color, loc.name) }).addTo(map);
+      m.bindPopup(makePopupHtml(loc, true), { maxWidth: 260 });
+      communityMarkers[loc.id] = m;
+    }
+
+    function clearCommunityMarkers() {
+      Object.values(communityMarkers).forEach(m => map.removeLayer(m));
+      communityMarkers = {};
+    }
+
     // Hiện N ký tự đầu, nút ··· để xem đầy đủ; uid phải unique trong trang
     function truncText(raw, max, uid) {
       if (!raw || raw.length <= max) return esc(raw || '');
@@ -1290,7 +1385,7 @@
     }
 
     // ── Popup content ──
-    function makePopupHtml(loc) {
+    function makePopupHtml(loc, isCommunity = false) {
       const imgs = loc.images?.length ? loc.images : (loc.image ? [loc.image] : []);
       let image = '';
       if (imgs.length > 0) {
@@ -1321,6 +1416,9 @@
       const link = loc.link ? `<div style="margin-top:5px"><a href="${esc(loc.link)}" target="_blank" rel="noopener" style="color:#1a73e8;font-size:0.78rem;word-break:break-all">🔗 ${linkDisplay}</a></div>` : '';
       const phone = loc.phone ? `<div style="margin-top:5px;display:flex;align-items:center;gap:6px"><span style="color:#333;font-size:0.82rem">📞 ${esc(loc.phone)}</span><a href="tel:${esc(loc.phone)}" style="background:#43a047;color:white;border-radius:6px;padding:2px 9px;font-size:0.75rem;text-decoration:none">Gọi</a></div>` : '';
       const coords = `<div style="color:#aaa;font-size:0.72rem;margin-top:4px">📍 ${loc.lat.toFixed(5)}, ${loc.lng.toFixed(5)}</div>`;
+      const ownerBadge = isCommunity
+        ? `<div style="font-size:0.72rem;color:#2e7d32;margin-top:3px">🌍 ${esc((loc.ownerEmail || '').split('@')[0])}</div>`
+        : '';
 
       const row = (label, val, unit='') => val
         ? `<div style="display:flex;gap:4px;font-size:0.78rem;flex:1;min-width:0"><span style="color:#888;white-space:nowrap">${label}:</span><b style="color:#333">${esc(val)}${unit ? ' ' + unit : ''}</b></div>`
@@ -1356,10 +1454,10 @@
       return `<div style="font-family:sans-serif;min-width:200px;max-width:260px;padding:2px 0">
         ${image}
         <strong style="font-size:0.92rem;color:#202124;display:block;margin-top:6px">${esc(loc.name)}</strong>
-        ${desc}${note}${link}${phone}${coords}${landSection}${assetSection}
+        ${desc}${note}${link}${phone}${coords}${ownerBadge}${landSection}${assetSection}
         <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
-          <button onclick="editLocation(${loc.id})" style="border:1px solid #1a73e8;background:#e8f0fe;color:#1a73e8;border-radius:6px;padding:3px 10px;font-size:0.78rem;cursor:pointer">Sửa</button>
-          <button onclick="deleteLocation(${loc.id})" style="border:1px solid #d93025;background:#fce8e6;color:#d93025;border-radius:6px;padding:3px 10px;font-size:0.78rem;cursor:pointer">Xóa</button>
+          ${(!isCommunity || currentUser?.uid === loc.ownerUid) ? `<button onclick="editLocation(${loc.id})" style="border:1px solid #1a73e8;background:#e8f0fe;color:#1a73e8;border-radius:6px;padding:3px 10px;font-size:0.78rem;cursor:pointer">Sửa</button>
+          <button onclick="deleteLocation(${loc.id})" style="border:1px solid #d93025;background:#fce8e6;color:#d93025;border-radius:6px;padding:3px 10px;font-size:0.78rem;cursor:pointer">Xóa</button>` : ''}
           <a href="${svUrl}" target="_blank" rel="noopener" style="border:1px solid #43a047;background:#e8f5e9;color:#2e7d32;border-radius:6px;padding:3px 10px;font-size:0.78rem;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:3px">🚶 Street View</a>
         </div>
       </div>`;
@@ -1395,6 +1493,9 @@
           return;
         }
         await userCol().doc(String(loc.id)).update({ lat, lng });
+        if (cur?.isPublic) {
+          await publicCol().doc(String(loc.id)).update({ lat, lng }).catch(() => {});
+        }
       });
       leafletMarkers[loc.id] = m;
     }
@@ -1428,6 +1529,7 @@
           ${loc.price ? `<div class="loc-price">💰 ${esc(loc.price)}</div>` : ''}
           ${loc.phone ? `<div class="loc-phone"><a href="tel:${esc(loc.phone)}" onclick="event.stopPropagation()">📞 ${esc(loc.phone)}</a></div>` : ''}
           <div class="loc-coords">${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}</div>
+          ${loc.isPublic ? '<div class="loc-public-badge">🌍 Công khai</div>' : ''}
         </div>
         <div class="loc-actions">
           <button class="btn-edit">Sửa</button>
@@ -1545,6 +1647,99 @@
       }
     }
 
+    // ── Community tab ──
+    function switchSidebarTab(tab) {
+      sidebarTab = tab;
+      document.getElementById('tab-mine').classList.toggle('active', tab === 'mine');
+      document.getElementById('tab-community').classList.toggle('active', tab === 'community');
+      document.getElementById('location-list').style.display = tab === 'mine' ? '' : 'none';
+      document.getElementById('community-list').style.display = tab === 'community' ? '' : 'none';
+      document.getElementById('group-by').style.display = tab === 'mine' ? '' : 'none';
+      if (tab === 'community') {
+        loadCommunityByViewport();
+      } else {
+        if (communityUnsub) { communityUnsub(); communityUnsub = null; }
+        clearCommunityMarkers();
+        communityLocations = [];
+      }
+    }
+
+    function renderCommunityList() {
+      const list = document.getElementById('community-list');
+      if (!communityLocations.length) {
+        list.innerHTML = '<div class="sidebar-empty">Chưa có địa điểm công khai nào<br/>trong khu vực này.</div>';
+        return;
+      }
+      list.innerHTML = '';
+      communityLocations.forEach(loc => {
+        const item = document.createElement('div');
+        item.className = 'loc-item';
+        const isOwner = currentUser?.uid === loc.ownerUid;
+        const ownerLabel = isOwner ? 'Của bạn' : (loc.ownerEmail || '').split('@')[0];
+        item.innerHTML = `
+          <div class="loc-pin" style="background:${loc.color}"></div>
+          <div class="loc-info">
+            <div class="loc-name">${esc(loc.name)}</div>
+            ${loc.desc ? `<div class="loc-desc">${esc(loc.desc)}</div>` : ''}
+            ${loc.price ? `<div class="loc-price">💰 ${esc(loc.price)}</div>` : ''}
+            <div class="loc-community-owner">🌍 ${esc(ownerLabel)}</div>
+            <div class="loc-coords">${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}</div>
+          </div>
+          ${isOwner ? `<div class="loc-actions">
+            <button class="btn-edit">Sửa</button>
+            <button class="btn-del">Xóa</button>
+          </div>` : ''}`;
+        if (isOwner) {
+          item.querySelector('.btn-edit').addEventListener('click', e => { e.stopPropagation(); editLocation(loc.id); });
+          item.querySelector('.btn-del').addEventListener('click', e => { e.stopPropagation(); deleteLocation(loc.id); });
+        }
+        item.addEventListener('click', () => {
+          map.flyTo([loc.lat, loc.lng], 16, { duration: 0.8 });
+          const marker = communityMarkers[loc.id] || leafletMarkers[loc.id];
+          setTimeout(() => marker?.openPopup(), 850);
+        });
+        list.appendChild(item);
+      });
+    }
+
+    function loadCommunityByViewport() {
+      if (communityUnsub) { communityUnsub(); communityUnsub = null; }
+      clearCommunityMarkers();
+      communityLocations = [];
+      const b = map.getBounds().pad(0.15);
+      communityUnsub = publicCol()
+        .where('lat', '>=', b.getSouth())
+        .where('lat', '<=', b.getNorth())
+        .onSnapshot(snap => {
+          snap.docChanges().forEach(change => {
+            const d = change.doc.data();
+            const id = d.id ?? Number(change.doc.id);
+            if (change.type === 'removed') {
+              communityLocations = communityLocations.filter(l => l.id !== id);
+              if (communityMarkers[id]) { map.removeLayer(communityMarkers[id]); delete communityMarkers[id]; }
+              return;
+            }
+            if (d.lng < b.getWest() || d.lng > b.getEast()) return;
+            const loc = { ...d, id };
+            const idx = communityLocations.findIndex(l => l.id === id);
+            if (change.type === 'added') {
+              if (idx < 0) { communityLocations.push(loc); addCommunityMarker(loc); }
+              else { communityLocations[idx] = loc; }
+            } else {
+              if (idx >= 0) communityLocations[idx] = loc; else communityLocations.push(loc);
+              if (communityMarkers[id]) {
+                communityMarkers[id].setIcon(createCommunityIcon(loc.color, loc.name));
+                communityMarkers[id].setLatLng([loc.lat, loc.lng]);
+                communityMarkers[id].setPopupContent(makePopupHtml(loc, true));
+              } else if (!leafletMarkers[id]) {
+                addCommunityMarker(loc);
+              }
+            }
+          });
+          renderCommunityList();
+        }, () => showHint('Lỗi tải địa điểm cộng đồng.'));
+    }
+
     // ── Nhóm theo khu vực ──
     async function fetchArea(id, lat, lng) {
       try {
@@ -1627,6 +1822,7 @@
     <legal>${xmlEsc(loc.legal)}</legal>
     <interior>${xmlEsc(loc.interior)}</interior>
     <phone>${xmlEsc(loc.phone)}</phone>
+    <isPublic>${loc.isPublic ? 'true' : 'false'}</isPublic>
   </location>`).join('\n');
       return `<?xml version="1.0" encoding="UTF-8"?>\n<locations>\n${rows}\n</locations>`;
     }
@@ -1661,6 +1857,7 @@
           legal:     get('legal'),
           interior:  get('interior'),
           phone:     get('phone'),
+          isPublic:  get('isPublic') === 'true',
         };
       }).filter(loc => !isNaN(loc.lat) && !isNaN(loc.lng) && loc.name);
     }
@@ -1743,6 +1940,15 @@
             batch.set(col.doc(String(loc.id)), loc);
           });
           await batch.commit();
+          const pubBatch = db.batch();
+          let hasPub = false;
+          imported.forEach(loc => {
+            if (loc.isPublic) {
+              pubBatch.set(publicCol().doc(String(loc.id)), { ...loc, ownerUid: currentUser.uid, ownerEmail: currentUser.email });
+              hasPub = true;
+            }
+          });
+          if (hasPub) await pubBatch.commit();
           alert(`Đã nhập ${imported.length} địa điểm lên cloud.`);
         } catch (err) {
           alert('Lỗi đọc file XML: ' + err.message);
@@ -1784,6 +1990,16 @@
       });
       const imgs = data.images?.length ? data.images : (data.image ? [data.image] : []);
       setImagesInForm(imgs);
+      const pubGroup = document.getElementById('public-share-group');
+      const pubCheck = document.getElementById('field-ispublic');
+      if (appMode === 'user') {
+        pubGroup.style.display = '';
+        pubCheck.checked = data.isPublic ?? false;
+        document.getElementById('public-toggle-label').textContent = pubCheck.checked ? '🌍 Công khai' : 'Riêng tư';
+      } else {
+        pubGroup.style.display = 'none';
+        pubCheck.checked = false;
+      }
       document.getElementById('modal-overlay').classList.remove('hidden');
       setTimeout(() => document.getElementById('field-name').focus(), 50);
     }
@@ -1993,22 +2209,40 @@
       }
 
       // User mode: Firestore
+      const newIsPublic = document.getElementById('field-ispublic')?.checked ?? false;
+      raw.isPublic = newIsPublic;
       const DEL = firebase.firestore.FieldValue.delete();
       const fields = {};
       for (const [k, v] of Object.entries(raw)) {
+        if (k === 'isPublic') { fields[k] = v; continue; }
         const empty = v === '' || v == null || (Array.isArray(v) && v.length === 0);
         if (editingId !== null) fields[k] = empty ? DEL : v;
         else if (!empty) fields[k] = v;
       }
 
       if (editingId !== null) {
+        const existingLoc = locations.find(l => l.id === editingId) || {};
         await userCol().doc(String(editingId)).update(fields);
+        if (newIsPublic) {
+          const pubData = { ...existingLoc };
+          for (const [k, v] of Object.entries(raw)) {
+            const empty = v === '' || v == null || (Array.isArray(v) && v.length === 0);
+            if (k === 'isPublic') { pubData[k] = true; continue; }
+            if (empty) delete pubData[k]; else pubData[k] = v;
+          }
+          pubData.ownerUid = currentUser.uid;
+          pubData.ownerEmail = currentUser.email;
+          await publicCol().doc(String(editingId)).set(pubData);
+        } else if (existingLoc.isPublic) {
+          await publicCol().doc(String(editingId)).delete().catch(() => {});
+        }
       } else {
         const id = Date.now();
-        await userCol().doc(String(id)).set({
-          id, lat: pendingLatLng.lat, lng: pendingLatLng.lng,
-          sortOrder: id, createdAt: id, ...fields
-        });
+        const docData = { id, lat: pendingLatLng.lat, lng: pendingLatLng.lng, sortOrder: id, createdAt: id, ...fields };
+        await userCol().doc(String(id)).set(docData);
+        if (newIsPublic) {
+          await publicCol().doc(String(id)).set({ ...docData, ownerUid: currentUser.uid, ownerEmail: currentUser.email });
+        }
         fetchArea(id, pendingLatLng.lat, pendingLatLng.lng);
       }
       closeModal();
@@ -2041,7 +2275,14 @@
         renderSidebar();
         return;
       }
+      const loc = locations.find(l => l.id === id);
       await userCol().doc(String(id)).delete();
+      if (loc?.isPublic) {
+        await publicCol().doc(String(id)).delete().catch(() => {});
+        if (communityMarkers[id]) { map.removeLayer(communityMarkers[id]); delete communityMarkers[id]; }
+        communityLocations = communityLocations.filter(l => l.id !== id);
+        if (sidebarTab === 'community') renderCommunityList();
+      }
     }
 
     // Cập nhật nút gọi khi nhập số điện thoại
@@ -2261,6 +2502,11 @@
       if (applied.length === 0) showStatus('warn', '⚠️ Không tìm thấy thông tin BĐS. Ảnh cần có chữ rõ nét (giá, diện tích, hướng...).');
       else showStatus('success', '✅ Đã điền: ' + applied.join(' · '));
     }
+
+    // Toggle label khi thay đổi trạng thái public
+    document.getElementById('field-ispublic').addEventListener('change', (e) => {
+      document.getElementById('public-toggle-label').textContent = e.target.checked ? '🌍 Công khai' : 'Riêng tư';
+    });
 
     // ── Color picker ──
     document.querySelectorAll('.color-dot').forEach(dot => {
@@ -2537,9 +2783,14 @@
 
     let vpTimer;
     map.on('moveend', () => {
-      if (appMode !== 'user') return;
-      clearTimeout(vpTimer);
-      vpTimer = setTimeout(loadByViewport, 800);
+      if (appMode === 'user') {
+        clearTimeout(vpTimer);
+        vpTimer = setTimeout(loadByViewport, 800);
+      }
+      if (sidebarTab === 'community') {
+        clearTimeout(communityVpTimer);
+        communityVpTimer = setTimeout(loadCommunityByViewport, 800);
+      }
     });
 
     // ── Auth UI ──
