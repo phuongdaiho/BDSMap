@@ -1,9 +1,12 @@
-const CACHE = 'bandog-v7';
+const CACHE = 'bandog-v8';
 const CORE = [
   './index.html',
   './manifest.json',
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css',
+  'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css',
+  'https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css',
+  'https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js',
 ];
 
 self.addEventListener('install', e => {
@@ -21,9 +24,7 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  // Bỏ qua POST và các request không phải GET
   if (e.request.method !== 'GET') return;
-  // Nominatim / telegra.ph / tile requests: network first, cache fallback
   const url = e.request.url;
   const isExternal = url.includes('nominatim') || url.includes('telegra.ph') ||
                      url.includes('tile.openstreetmap') || url.includes('arcgisonline') ||
@@ -36,7 +37,7 @@ self.addEventListener('fetch', e => {
     );
     return;
   }
-  // App shell: cache first
+  // App shell + CDN libs: cache first
   e.respondWith(
     caches.match(e.request).then(r => r || fetch(e.request).then(res => {
       const clone = res.clone();
