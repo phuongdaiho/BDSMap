@@ -1070,6 +1070,7 @@
     // ── Map ──
     const map = L.map('map', {
       zoomControl: false,
+      maxZoom: 19,
     }).setView([21.0285, 105.8542], 13);
     L.control.zoom({ zoomInTitle: 'Phóng to', zoomOutTitle: 'Thu nhỏ' }).addTo(map);
     measureGroup = L.layerGroup().addTo(map);
