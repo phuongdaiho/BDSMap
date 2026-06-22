@@ -1080,21 +1080,32 @@
     L.control.zoom({ zoomInTitle: 'Phóng to', zoomOutTitle: 'Thu nhỏ' }).addTo(map);
     measureGroup = L.layerGroup().addTo(map);
 
-    function makeClusterGroup() {
+    function makeClusterGroup(isCommunity) {
       if (typeof L.markerClusterGroup === 'function') {
+        const color = isCommunity ? '#f57c00' : '#1a73e8';
         return L.markerClusterGroup({
-          maxClusterRadius: 50,
+          maxClusterRadius: 60,
           disableClusteringAtZoom: 17,
           spiderfyOnMaxZoom: true,
           showCoverageOnHover: false,
+          iconCreateFunction(cluster) {
+            const count = cluster.getChildCount();
+            const size  = count < 10 ? 34 : count < 100 ? 40 : 46;
+            return L.divIcon({
+              html: `<div style="background:${color};color:#fff;border-radius:50%;width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:${size < 40 ? 13 : 14}px;box-shadow:0 2px 6px rgba(0,0,0,.35);border:2px solid #fff">${count}</div>`,
+              className: '',
+              iconSize: [size, size],
+              iconAnchor: [size / 2, size / 2],
+            });
+          },
         });
       }
       const g = L.layerGroup();
       g.zoomToShowLayer = (_m, cb) => { if (cb) cb(); };
       return g;
     }
-    const clusterGroup = makeClusterGroup().addTo(map);
-    const communityClusterGroup = makeClusterGroup().addTo(map);
+    const clusterGroup = makeClusterGroup(false).addTo(map);
+    const communityClusterGroup = makeClusterGroup(true).addTo(map);
 
     const layerStreet = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
