@@ -16,6 +16,8 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
@@ -1005,6 +1007,7 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
   <script>
     // ── Firebase ──
     firebase.initializeApp({
@@ -1070,6 +1073,19 @@
     }).setView([21.0285, 105.8542], 13);
     L.control.zoom({ zoomInTitle: 'Phóng to', zoomOutTitle: 'Thu nhỏ' }).addTo(map);
     measureGroup = L.layerGroup().addTo(map);
+
+    const clusterGroup = L.markerClusterGroup({
+      maxClusterRadius: 50,
+      disableClusteringAtZoom: 17,
+      spiderfyOnMaxZoom: true,
+      showCoverageOnHover: false,
+    }).addTo(map);
+    const communityClusterGroup = L.markerClusterGroup({
+      maxClusterRadius: 50,
+      disableClusteringAtZoom: 17,
+      spiderfyOnMaxZoom: true,
+      showCoverageOnHover: false,
+    }).addTo(map);
 
     const layerStreet = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -1346,16 +1362,16 @@
     }
 
     function addCommunityMarker(loc) {
-      if (communityMarkers[loc.id]) { map.removeLayer(communityMarkers[loc.id]); delete communityMarkers[loc.id]; }
+      if (communityMarkers[loc.id]) { communityClusterGroup.removeLayer(communityMarkers[loc.id]); delete communityMarkers[loc.id]; }
       if (leafletMarkers[loc.id]) return;
       const m = L.marker([loc.lat, loc.lng], { icon: createCommunityIcon(loc.color, loc.name) });
-      if (communityVisible) m.addTo(map);
+      if (communityVisible) communityClusterGroup.addLayer(m);
       m.bindPopup(makePopupHtml(loc, true), { maxWidth: 260 });
       communityMarkers[loc.id] = m;
     }
 
     function clearCommunityMarkers() {
-      Object.values(communityMarkers).forEach(m => map.removeLayer(m));
+      communityClusterGroup.clearLayers();
       communityMarkers = {};
     }
 
@@ -1365,9 +1381,9 @@
       btn.classList.toggle('off', !communityVisible);
       btn.title = communityVisible ? 'Ẩn địa điểm cộng đồng' : 'Hiện địa điểm cộng đồng';
       if (!communityVisible) {
-        Object.values(communityMarkers).forEach(m => map.removeLayer(m));
+        Object.values(communityMarkers).forEach(m => communityClusterGroup.removeLayer(m));
       } else {
-        communityLocations.forEach(loc => { if (!leafletMarkers[loc.id]) addCommunityMarker(loc); });
+        Object.values(communityMarkers).forEach(m => communityClusterGroup.addLayer(m));
       }
     }
 
@@ -1467,8 +1483,9 @@
 
     // ── Render markers on map ──
     function addMarker(loc) {
-      if (leafletMarkers[loc.id]) { map.removeLayer(leafletMarkers[loc.id]); delete leafletMarkers[loc.id]; }
-      const m = L.marker([loc.lat, loc.lng], { icon: createIcon(loc.color, loc.name), draggable: true }).addTo(map);
+      if (leafletMarkers[loc.id]) { clusterGroup.removeLayer(leafletMarkers[loc.id]); delete leafletMarkers[loc.id]; }
+      const m = L.marker([loc.lat, loc.lng], { icon: createIcon(loc.color, loc.name), draggable: true });
+      clusterGroup.addLayer(m);
       m.bindPopup(makePopupHtml(loc), { maxWidth: 260 });
       m.on('dragend', async (e) => {
         const { lat, lng } = e.target.getLatLng();
@@ -1499,7 +1516,7 @@
     }
 
     function renderMarkers() {
-      Object.values(leafletMarkers).forEach(m => map.removeLayer(m));
+      clusterGroup.clearLayers();
       leafletMarkers = {};
       locations.forEach(loc => addMarker(loc));
     }
@@ -1659,7 +1676,7 @@
             const id = d.id ?? Number(change.doc.id);
             if (change.type === 'removed') {
               communityLocations = communityLocations.filter(l => l.id !== id);
-              if (communityMarkers[id]) { map.removeLayer(communityMarkers[id]); delete communityMarkers[id]; }
+              if (communityMarkers[id]) { communityClusterGroup.removeLayer(communityMarkers[id]); delete communityMarkers[id]; }
               return;
             }
             if (d.lng < b.getWest() || d.lng > b.getEast()) return;
@@ -2194,8 +2211,10 @@
     function flyTo(id) {
       const loc = locations.find(l => l.id === id);
       if (!loc) return;
+      const m = leafletMarkers[id];
+      if (!m) return;
       map.flyTo([loc.lat, loc.lng], 16, { duration: 0.8 });
-      setTimeout(() => leafletMarkers[id]?.openPopup(), 850);
+      setTimeout(() => clusterGroup.zoomToShowLayer(m, () => m.openPopup()), 900);
     }
 
     function editLocation(id) {
@@ -2212,7 +2231,7 @@
       Object.values(leafletMarkers).forEach(m => m.closePopup());
       if (appMode === 'guest') {
         locations = locations.filter(l => l.id !== id);
-        if (leafletMarkers[id]) { map.removeLayer(leafletMarkers[id]); delete leafletMarkers[id]; }
+        if (leafletMarkers[id]) { clusterGroup.removeLayer(leafletMarkers[id]); delete leafletMarkers[id]; }
         guestPersist();
         renderSidebar();
         return;
@@ -2221,7 +2240,7 @@
       await userCol().doc(String(id)).delete();
       if (loc?.isPublic) {
         await publicCol().doc(String(id)).delete().catch(() => {});
-        if (communityMarkers[id]) { map.removeLayer(communityMarkers[id]); delete communityMarkers[id]; }
+        if (communityMarkers[id]) { communityClusterGroup.removeLayer(communityMarkers[id]); delete communityMarkers[id]; }
         communityLocations = communityLocations.filter(l => l.id !== id);
       }
     }
@@ -2662,7 +2681,7 @@
 
       if (change.type === 'removed') {
         locations = locations.filter(l => l.id !== id);
-        if (leafletMarkers[id]) { map.removeLayer(leafletMarkers[id]); delete leafletMarkers[id]; }
+        if (leafletMarkers[id]) { clusterGroup.removeLayer(leafletMarkers[id]); delete leafletMarkers[id]; }
         return;
       }
 
@@ -2717,7 +2736,7 @@
 
     function startFirestoreSync() {
       locations = [];
-      Object.values(leafletMarkers).forEach(m => map.removeLayer(m));
+      clusterGroup.clearLayers();
       leafletMarkers = {};
       loadByViewport();
       loadCommunityByViewport();
