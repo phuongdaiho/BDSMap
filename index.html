@@ -100,6 +100,8 @@
     .search-bar button:hover { background: #1557b0; }
     .search-bar button.gray { background: #5f6368; }
     .search-bar button.gray:hover { background: #3c4043; }
+    .search-bar button.gray.off { background: #bdbdbd; color: rgba(255,255,255,0.7); }
+    .search-bar button.gray.off:hover { background: #9e9e9e; }
     .upload-btn {
       background: #f1f3f4; color: #444; border: 1px solid #ddd;
       border-radius: 8px; padding: 6px 9px;
@@ -770,6 +772,7 @@
     <button onclick="searchLocation()">Tìm kiếm</button>
     <div class="sep"></div>
     <button class="gray" onclick="goToMyLocation()">📍 Vị trí tôi</button>
+    <button id="btn-toggle-community" class="gray" onclick="toggleCommunityMarkers()" title="Ẩn/hiện địa điểm cộng đồng">🌍 Cộng đồng</button>
     <button id="btn-save-xml" class="gray" onclick="saveXML()" title="Lưu toàn bộ dữ liệu ra file data.xml">💾 Lưu XML</button>
     <label class="gray-btn" title="Mở file data.xml">
       📂 Mở XML
@@ -1038,6 +1041,7 @@
     let communityMarkers = {};
     let communityUnsub = null;
     let communityVpTimer;
+    let communityVisible = true;
 
     // Trả về collection của user hiện tại
     function userCol() {
@@ -1343,8 +1347,9 @@
 
     function addCommunityMarker(loc) {
       if (communityMarkers[loc.id]) { map.removeLayer(communityMarkers[loc.id]); delete communityMarkers[loc.id]; }
-      if (leafletMarkers[loc.id]) return; // already shown as personal marker
-      const m = L.marker([loc.lat, loc.lng], { icon: createCommunityIcon(loc.color, loc.name) }).addTo(map);
+      if (leafletMarkers[loc.id]) return;
+      const m = L.marker([loc.lat, loc.lng], { icon: createCommunityIcon(loc.color, loc.name) });
+      if (communityVisible) m.addTo(map);
       m.bindPopup(makePopupHtml(loc, true), { maxWidth: 260 });
       communityMarkers[loc.id] = m;
     }
@@ -1352,6 +1357,18 @@
     function clearCommunityMarkers() {
       Object.values(communityMarkers).forEach(m => map.removeLayer(m));
       communityMarkers = {};
+    }
+
+    function toggleCommunityMarkers() {
+      communityVisible = !communityVisible;
+      const btn = document.getElementById('btn-toggle-community');
+      btn.classList.toggle('off', !communityVisible);
+      btn.title = communityVisible ? 'Ẩn địa điểm cộng đồng' : 'Hiện địa điểm cộng đồng';
+      if (!communityVisible) {
+        Object.values(communityMarkers).forEach(m => map.removeLayer(m));
+      } else {
+        communityLocations.forEach(loc => { if (!leafletMarkers[loc.id]) addCommunityMarker(loc); });
+      }
     }
 
     // Hiện N ký tự đầu, nút ··· để xem đầy đủ; uid phải unique trong trang
