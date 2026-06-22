@@ -1080,9 +1080,9 @@
     L.control.zoom({ zoomInTitle: 'Phóng to', zoomOutTitle: 'Thu nhỏ' }).addTo(map);
     measureGroup = L.layerGroup().addTo(map);
 
-    function makeClusterGroup(isCommunity) {
+    function makeClusterGroup() {
       if (typeof L.markerClusterGroup === 'function') {
-        const color = isCommunity ? '#f57c00' : '#1a73e8';
+        const color = '#1a73e8';
         return L.markerClusterGroup({
           maxClusterRadius: 60,
           disableClusteringAtZoom: 17,
@@ -1104,8 +1104,8 @@
       g.zoomToShowLayer = (_m, cb) => { if (cb) cb(); };
       return g;
     }
-    const clusterGroup = makeClusterGroup(false).addTo(map);
-    const communityClusterGroup = makeClusterGroup(true).addTo(map);
+    const clusterGroup = makeClusterGroup().addTo(map);
+    const communityClusterGroup = clusterGroup;
 
     const layerStreet = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
