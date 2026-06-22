@@ -18,6 +18,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -90,7 +91,7 @@
       padding: 6px 13px; font-size: 0.88rem; outline: none;
     }
     .search-bar input[type="text"]:focus { border-color: #1a73e8; }
-.search-bar button {
+    .search-bar button {
       background: #1a73e8; color: white; border: none;
       border-radius: 20px; padding: 6px 14px;
       font-size: 0.83rem; cursor: pointer; white-space: nowrap;
@@ -633,6 +634,92 @@
       white-space: nowrap;
       transition: opacity 0.5s;
     }
+
+    /* ── Auth overlay ── */
+    #auth-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.65);
+      z-index: 9000;
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    #auth-overlay.hidden { display: none; }
+    #auth-modal {
+      background: white; border-radius: 18px;
+      width: 100%; max-width: 360px;
+      padding: 28px 22px 22px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+    .auth-logo {
+      text-align: center; font-size: 2rem; margin-bottom: 6px;
+    }
+    .auth-title {
+      font-size: 1.1rem; font-weight: 700; color: #202124;
+      margin-bottom: 4px; text-align: center;
+    }
+    .auth-subtitle {
+      font-size: 0.82rem; color: #666;
+      margin-bottom: 20px; text-align: center;
+    }
+    .auth-tabs {
+      display: flex; border-bottom: 2px solid #e0e0e0; margin-bottom: 16px;
+    }
+    .auth-tab {
+      flex: 1; background: none; border: none; padding: 8px 0;
+      font-size: 0.88rem; font-family: inherit; cursor: pointer;
+      color: #666; font-weight: 600; transition: color 0.2s;
+      border-bottom: 2px solid transparent; margin-bottom: -2px;
+    }
+    .auth-tab.active { color: #1a73e8; border-bottom-color: #1a73e8; }
+    .auth-input {
+      width: 100%; border: 1px solid #ddd; border-radius: 10px;
+      padding: 11px 13px; font-size: 0.9rem; outline: none;
+      margin-bottom: 10px; font-family: inherit; box-sizing: border-box;
+    }
+    .auth-input:focus { border-color: #1a73e8; }
+    .auth-btn-primary {
+      width: 100%; background: #1a73e8; color: white; border: none;
+      border-radius: 10px; padding: 12px; font-size: 0.92rem;
+      cursor: pointer; font-family: inherit; font-weight: 600;
+      transition: background 0.2s; margin-bottom: 8px; display: block;
+    }
+    .auth-btn-primary:hover { background: #1557b0; }
+    .auth-btn-primary:disabled { opacity: 0.6; cursor: default; }
+    .auth-btn-guest {
+      width: 100%; background: none; color: #666; border: 1px solid #ddd;
+      border-radius: 10px; padding: 11px; font-size: 0.85rem;
+      cursor: pointer; font-family: inherit; transition: background 0.2s;
+      margin-top: 4px; display: block;
+    }
+    .auth-btn-guest:hover { background: #f8f9fa; color: #333; }
+    .auth-error {
+      background: #fce8e6; color: #c62828; border-radius: 8px;
+      padding: 8px 12px; font-size: 0.82rem; margin-bottom: 10px;
+      display: none;
+    }
+    .auth-error.show { display: block; }
+    .auth-divider {
+      text-align: center; color: #bbb; font-size: 0.78rem;
+      margin: 12px 0; display: flex; align-items: center; gap: 8px;
+    }
+    .auth-divider::before, .auth-divider::after {
+      content: ''; flex: 1; height: 1px; background: #e8e8e8;
+    }
+
+    /* ── Mode badge (header) ── */
+    #mode-badge {
+      background: rgba(255,255,255,0.2);
+      border: none; color: white; border-radius: 8px;
+      padding: 5px 10px; font-size: 0.78rem; cursor: pointer;
+      display: flex; align-items: center; gap: 5px;
+      transition: background 0.2s; white-space: nowrap; flex-shrink: 0;
+    }
+    #mode-badge:hover { background: rgba(255,255,255,0.35); }
+    .mode-dot {
+      width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+    }
+    .mode-dot.guest { background: #fbbc04; }
+    .mode-dot.user  { background: #34a853; }
   </style>
 </head>
 <body>
@@ -640,6 +727,10 @@
   <header>
     <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
     <h1>Bản đồ</h1>
+    <button id="mode-badge" onclick="openAuthModal()">
+      <div class="mode-dot guest" id="mode-dot"></div>
+      <span id="mode-label">Khách</span>
+    </button>
     <button id="toggle-sidebar" onclick="toggleSidebar()">
       📋 Địa điểm đã lưu <span id="sidebar-count">0</span>
     </button>
@@ -707,6 +798,25 @@
       <div id="location-list">
         <div class="sidebar-empty">Chưa có địa điểm nào.<br/>Click lên bản đồ để thêm.</div>
       </div>
+    </div>
+  </div>
+
+  <!-- Auth Modal -->
+  <div id="auth-overlay" class="hidden">
+    <div id="auth-modal">
+      <div class="auth-logo">🗺️</div>
+      <div class="auth-title">Bản đồ BĐS</div>
+      <div class="auth-subtitle" id="auth-subtitle">Đăng nhập để đồng bộ dữ liệu đa thiết bị</div>
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">Đăng nhập</button>
+        <button class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">Đăng ký</button>
+      </div>
+      <div class="auth-error" id="auth-error"></div>
+      <input class="auth-input" type="email" id="auth-email" placeholder="Email" autocomplete="email" />
+      <input class="auth-input" type="password" id="auth-password" placeholder="Mật khẩu" autocomplete="current-password" />
+      <button class="auth-btn-primary" id="auth-submit-btn" onclick="authSubmit()">Đăng nhập</button>
+      <div class="auth-divider">hoặc</div>
+      <button class="auth-btn-guest" onclick="continueAsGuest()">👤 Tiếp tục không cần đăng nhập</button>
     </div>
   </div>
 
@@ -866,9 +976,15 @@
       messagingSenderId: "1040944177628",
       appId: "1:1040944177628:web:147c05fd57d278c333ef19"
     });
-    const db = firebase.firestore();
+    const db   = firebase.firestore();
+    const auth = firebase.auth();
 
     // ── State ──
+
+    let appMode = 'loading';   // 'loading' | 'guest' | 'user'
+    let currentUser = null;
+    const GUEST_KEY      = 'map_guest_locations';
+    const GUEST_MODE_KEY = 'map_auth_mode';
 
     let locations = [];
     let searchMarker = null;
@@ -882,6 +998,22 @@
     let measureMode = false;
     let measurePoints = [];
     let measureGroup = null;
+
+    // Trả về collection của user hiện tại
+    function userCol() {
+      return db.collection('users').doc(currentUser.uid).collection('locations');
+    }
+
+    // Guest mode: persist locations array vào localStorage
+    function guestPersist() {
+      localStorage.setItem(GUEST_KEY, JSON.stringify(locations));
+    }
+
+    function loadGuestData() {
+      locations = JSON.parse(localStorage.getItem(GUEST_KEY) || '[]');
+      renderMarkers();
+      renderSidebar();
+    }
 
     // ── Map ──
     const map = L.map('map', {
@@ -1255,7 +1387,14 @@
           document.getElementById('modal-lat').value = lat.toFixed(6);
           document.getElementById('modal-lng').value = lng.toFixed(6);
         }
-        await db.collection('locations').doc(String(loc.id)).update({ lat, lng });
+        if (appMode === 'guest') {
+          const idx = locations.findIndex(l => l.id === loc.id);
+          if (idx >= 0) { locations[idx].lat = lat; locations[idx].lng = lng; }
+          m.setPopupContent(makePopupHtml({ ...loc, lat, lng }));
+          guestPersist();
+          return;
+        }
+        await userCol().doc(String(loc.id)).update({ lat, lng });
       });
       leafletMarkers[loc.id] = m;
     }
@@ -1339,11 +1478,15 @@
           tgtIdx = locations.findIndex(l => l.id === loc.id);
           locations.splice(isTop ? tgtIdx : tgtIdx + 1, 0, moved);
           renderSidebar();
-          const batch = db.batch();
-          locations.forEach((l, idx) => {
-            batch.update(db.collection('locations').doc(String(l.id)), { sortOrder: idx * 1000 });
-          });
-          batch.commit();
+          if (appMode === 'guest') {
+            guestPersist();
+          } else {
+            const batch = db.batch();
+            locations.forEach((l, idx) => {
+              batch.update(userCol().doc(String(l.id)), { sortOrder: idx * 1000 });
+            });
+            batch.commit();
+          }
         });
       }
       return item;
@@ -1413,9 +1556,16 @@
         const district = addr.city_district || addr.county || addr.town || addr.village || addr.suburb || '';
         const province = addr.state || addr.city || '';
         const area = [district, province].filter(Boolean).join(', ') || 'Không xác định';
-        await db.collection('locations').doc(String(id)).update({ area });
+        if (appMode === 'guest') {
+          const idx = locations.findIndex(l => l.id === id);
+          if (idx >= 0) { locations[idx].area = area; renderSidebar(); guestPersist(); }
+        } else {
+          await userCol().doc(String(id)).update({ area });
+        }
       } catch {
-        try { await db.collection('locations').doc(String(id)).update({ area: 'Không xác định' }); } catch {}
+        if (appMode !== 'guest') {
+          try { await userCol().doc(String(id)).update({ area: 'Không xác định' }); } catch {}
+        }
       }
     }
 
@@ -1440,11 +1590,6 @@
       renderSidebar();
       if (groupByField === 'area') fetchMissingAreas();
     });
-
-    function save() {
-      renderMarkers();
-      renderSidebar();
-    }
 
     // ── XML utilities ──
     function xmlEsc(str) {
@@ -1571,25 +1716,6 @@
       }
     }
 
-    // Auto-save sau khi thay đổi (debounce 800ms)
-    let autoDownloadTimer;
-    function autoDownloadXML() {
-      clearTimeout(autoDownloadTimer);
-      autoDownloadTimer = setTimeout(async () => {
-        const blob = xmlBlob();
-        if (savedFileHandle) {
-          try {
-            await writeToHandle(savedFileHandle, blob);
-            return;
-          } catch {
-            savedFileHandle = null;
-            updateSaveBtn();
-          }
-        }
-        fallbackDownload(blob);
-      }, 800);
-    }
-
     // Nhập file XML
     function importXML(event) {
       const file = event.target.files[0];
@@ -1598,10 +1724,23 @@
       reader.onload = async (e) => {
         try {
           const imported = parseXML(e.target.result);
+          if (appMode === 'guest') {
+            imported.forEach((loc, idx) => {
+              if (!loc.sortOrder) loc.sortOrder = loc.id ?? (Date.now() + idx);
+              const exists = locations.findIndex(l => l.id === loc.id);
+              if (exists >= 0) locations[exists] = loc; else locations.push(loc);
+            });
+            guestPersist();
+            renderMarkers();
+            renderSidebar();
+            alert(`Đã nhập ${imported.length} địa điểm (chế độ Khách).`);
+            return;
+          }
+          const col = userCol();
           const batch = db.batch();
           imported.forEach((loc, idx) => {
             if (!loc.sortOrder) loc.sortOrder = loc.id ?? (Date.now() + idx);
-            batch.set(db.collection('locations').doc(String(loc.id)), loc);
+            batch.set(col.doc(String(loc.id)), loc);
           });
           await batch.commit();
           alert(`Đã nhập ${imported.length} địa điểm lên cloud.`);
@@ -1611,18 +1750,6 @@
       };
       reader.readAsText(file);
       event.target.value = '';
-    }
-
-    // Tự động tải data.xml khi mở trang (cần chạy qua HTTP server)
-    async function loadDataXML() {
-      try {
-        const res = await fetch('./data.xml');
-        if (!res.ok) return;
-        const text = await res.text();
-        locations = parseXML(text);
-        renderMarkers();
-        renderSidebar();
-      } catch { /* file chưa tồn tại hoặc chạy từ file:// */ }
     }
 
     // ── Modal ──
@@ -1829,7 +1956,43 @@
         color:     selectedColor,
       };
 
-      // Lọc field rỗng: bỏ qua khi add, xóa field khi update
+      if (appMode === 'guest') {
+        const fields = {};
+        for (const [k, v] of Object.entries(raw)) {
+          const empty = v === '' || v == null || (Array.isArray(v) && v.length === 0);
+          if (!empty) fields[k] = v;
+        }
+        if (editingId !== null) {
+          const idx = locations.findIndex(l => l.id === editingId);
+          if (idx >= 0) {
+            const updated = { ...locations[idx] };
+            for (const k of Object.keys(raw)) {
+              const v = raw[k];
+              const empty = v === '' || v == null || (Array.isArray(v) && v.length === 0);
+              if (empty) delete updated[k];
+              else updated[k] = v;
+            }
+            locations[idx] = updated;
+            if (leafletMarkers[editingId]) {
+              leafletMarkers[editingId].setIcon(createIcon(updated.color, updated.name));
+              leafletMarkers[editingId].setLatLng([updated.lat, updated.lng]);
+              leafletMarkers[editingId].setPopupContent(makePopupHtml(updated));
+            }
+          }
+        } else {
+          const id = Date.now();
+          const newLoc = { id, lat: pendingLatLng.lat, lng: pendingLatLng.lng, sortOrder: id, createdAt: id, ...fields };
+          locations.push(newLoc);
+          addMarker(newLoc);
+          fetchArea(id, pendingLatLng.lat, pendingLatLng.lng);
+        }
+        guestPersist();
+        renderSidebar();
+        closeModal();
+        return;
+      }
+
+      // User mode: Firestore
       const DEL = firebase.firestore.FieldValue.delete();
       const fields = {};
       for (const [k, v] of Object.entries(raw)) {
@@ -1839,10 +2002,10 @@
       }
 
       if (editingId !== null) {
-        await db.collection('locations').doc(String(editingId)).update(fields);
+        await userCol().doc(String(editingId)).update(fields);
       } else {
         const id = Date.now();
-        await db.collection('locations').doc(String(id)).set({
+        await userCol().doc(String(id)).set({
           id, lat: pendingLatLng.lat, lng: pendingLatLng.lng,
           sortOrder: id, createdAt: id, ...fields
         });
@@ -1871,7 +2034,14 @@
     async function deleteLocation(id) {
       if (!confirm('Xóa địa điểm này?')) return;
       Object.values(leafletMarkers).forEach(m => m.closePopup());
-      await db.collection('locations').doc(String(id)).delete();
+      if (appMode === 'guest') {
+        locations = locations.filter(l => l.id !== id);
+        if (leafletMarkers[id]) { map.removeLayer(leafletMarkers[id]); delete leafletMarkers[id]; }
+        guestPersist();
+        renderSidebar();
+        return;
+      }
+      await userCol().doc(String(id)).delete();
     }
 
     // Cập nhật nút gọi khi nhập số điện thoại
@@ -2317,7 +2487,6 @@
           locations.push(loc);
           addMarker(loc);
         } else {
-          // Đã có trong bộ nhớ — chỉ refresh data và popup
           locations[idx] = loc;
           leafletMarkers[id]?.setPopupContent(makePopupHtml(loc));
         }
@@ -2334,10 +2503,11 @@
     }
 
     function loadByViewport() {
+      if (appMode !== 'user' || !currentUser) return;
       if (viewportUnsub) { viewportUnsub(); viewportUnsub = null; }
       const b = map.getBounds().pad(0.15);
 
-      viewportUnsub = db.collection('locations')
+      viewportUnsub = userCol()
         .where('lat', '>=', b.getSouth())
         .where('lat', '<=', b.getNorth())
         .onSnapshot(snap => {
@@ -2354,13 +2524,187 @@
           }
         }, err => {
           console.error('Firestore lỗi:', err);
-          alert('Không kết nối được Firestore. Kiểm tra internet hoặc cài đặt Firebase.');
+          showHint('Không kết nối được Firestore. Kiểm tra kết nối mạng.');
         });
     }
 
+    function startFirestoreSync() {
+      locations = [];
+      Object.values(leafletMarkers).forEach(m => map.removeLayer(m));
+      leafletMarkers = {};
+      loadByViewport();
+    }
+
     let vpTimer;
-    map.on('moveend', () => { clearTimeout(vpTimer); vpTimer = setTimeout(loadByViewport, 800); });
-    loadByViewport();
+    map.on('moveend', () => {
+      if (appMode !== 'user') return;
+      clearTimeout(vpTimer);
+      vpTimer = setTimeout(loadByViewport, 800);
+    });
+
+    // ── Auth UI ──
+
+    let authTabMode = 'login'; // 'login' | 'register'
+
+    function openAuthModal() {
+      document.getElementById('auth-error').classList.remove('show');
+      document.getElementById('auth-email').value = '';
+      document.getElementById('auth-password').value = '';
+      if (currentUser) {
+        // Đã đăng nhập → hiện thông tin + nút logout
+        document.getElementById('auth-subtitle').textContent = currentUser.email;
+        document.getElementById('auth-submit-btn').textContent = 'Đăng xuất';
+        document.getElementById('auth-submit-btn').onclick = authLogout;
+        document.getElementById('tab-login').style.display = 'none';
+        document.getElementById('tab-register').style.display = 'none';
+        document.querySelector('.auth-divider').style.display = 'none';
+        document.querySelector('.auth-btn-guest').style.display = 'none';
+        document.getElementById('auth-email').style.display = 'none';
+        document.getElementById('auth-password').style.display = 'none';
+      } else {
+        switchAuthTab('login');
+        document.getElementById('tab-login').style.display = '';
+        document.getElementById('tab-register').style.display = '';
+        document.querySelector('.auth-divider').style.display = '';
+        document.querySelector('.auth-btn-guest').style.display = '';
+        document.getElementById('auth-email').style.display = '';
+        document.getElementById('auth-password').style.display = '';
+        document.getElementById('auth-subtitle').textContent = 'Đăng nhập để đồng bộ dữ liệu đa thiết bị';
+        document.getElementById('auth-submit-btn').onclick = authSubmit;
+      }
+      document.getElementById('auth-overlay').classList.remove('hidden');
+    }
+
+    function closeAuthModal() {
+      document.getElementById('auth-overlay').classList.add('hidden');
+    }
+
+    function switchAuthTab(tab) {
+      authTabMode = tab;
+      document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+      document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+      document.getElementById('auth-submit-btn').textContent = tab === 'login' ? 'Đăng nhập' : 'Đăng ký';
+      document.getElementById('auth-error').classList.remove('show');
+    }
+
+    async function authSubmit() {
+      const email    = document.getElementById('auth-email').value.trim();
+      const password = document.getElementById('auth-password').value;
+      const errEl    = document.getElementById('auth-error');
+      const btn      = document.getElementById('auth-submit-btn');
+      if (!email || !password) { showAuthError('Vui lòng nhập email và mật khẩu.'); return; }
+
+      btn.disabled = true;
+      btn.textContent = '⏳ Đang xử lý...';
+      errEl.classList.remove('show');
+      try {
+        if (authTabMode === 'login') {
+          await auth.signInWithEmailAndPassword(email, password);
+        } else {
+          await auth.createUserWithEmailAndPassword(email, password);
+        }
+        closeAuthModal();
+      } catch (err) {
+        const msg = {
+          'auth/user-not-found':    'Email chưa được đăng ký.',
+          'auth/wrong-password':    'Sai mật khẩu.',
+          'auth/invalid-email':     'Email không hợp lệ.',
+          'auth/email-already-in-use': 'Email đã được sử dụng. Hãy đăng nhập.',
+          'auth/weak-password':     'Mật khẩu quá yếu (ít nhất 6 ký tự).',
+          'auth/invalid-credential': 'Email hoặc mật khẩu không đúng.',
+        }[err.code] || err.message;
+        showAuthError(msg);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = authTabMode === 'login' ? 'Đăng nhập' : 'Đăng ký';
+      }
+    }
+
+    function showAuthError(msg) {
+      const el = document.getElementById('auth-error');
+      el.textContent = msg;
+      el.classList.add('show');
+    }
+
+    async function authLogout() {
+      if (!confirm('Đăng xuất khỏi tài khoản?')) return;
+      closeAuthModal();
+      await auth.signOut();
+    }
+
+    function continueAsGuest() {
+      localStorage.setItem(GUEST_MODE_KEY, 'guest');
+      closeAuthModal();
+      activateGuestMode();
+    }
+
+    function updateModeBadge() {
+      const dot   = document.getElementById('mode-dot');
+      const label = document.getElementById('mode-label');
+      if (appMode === 'user' && currentUser) {
+        dot.className = 'mode-dot user';
+        const name = currentUser.email.split('@')[0];
+        label.textContent = name.length > 12 ? name.slice(0, 12) + '…' : name;
+      } else {
+        dot.className = 'mode-dot guest';
+        label.textContent = 'Khách';
+      }
+    }
+
+    function activateGuestMode() {
+      appMode = 'guest';
+      currentUser = null;
+      if (viewportUnsub) { viewportUnsub(); viewportUnsub = null; }
+      updateModeBadge();
+      loadGuestData();
+    }
+
+    async function offerGuestMigration() {
+      const guestData = JSON.parse(localStorage.getItem(GUEST_KEY) || '[]');
+      if (!guestData.length) return;
+      if (!confirm(`Bạn có ${guestData.length} địa điểm từ chế độ Khách.\nChuyển lên tài khoản "${currentUser.email}" không?`)) {
+        localStorage.removeItem(GUEST_KEY);
+        return;
+      }
+      try {
+        const col = userCol();
+        const batch = db.batch();
+        guestData.forEach(loc => batch.set(col.doc(String(loc.id)), loc));
+        await batch.commit();
+        localStorage.removeItem(GUEST_KEY);
+      } catch (err) {
+        console.error('Migration lỗi:', err);
+      }
+    }
+
+    // ── Firebase Auth state listener ──
+    auth.onAuthStateChanged(async user => {
+      if (user) {
+        currentUser = user;
+        appMode = 'user';
+        localStorage.removeItem(GUEST_MODE_KEY);
+        updateModeBadge();
+        await offerGuestMigration();
+        startFirestoreSync();
+      } else {
+        currentUser = null;
+        if (localStorage.getItem(GUEST_MODE_KEY) === 'guest') {
+          activateGuestMode();
+        } else {
+          // Chưa có lựa chọn → hiện màn hình auth
+          appMode = 'loading';
+          updateModeBadge();
+          openAuthModal();
+        }
+      }
+    });
+
+    // Đóng auth modal khi click ra ngoài
+    document.getElementById('auth-overlay').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('auth-overlay') && appMode !== 'loading') {
+        closeAuthModal();
+      }
+    });
   </script>
 
   <!-- Đăng ký Service Worker (PWA offline) -->
