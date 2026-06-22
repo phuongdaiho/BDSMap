@@ -1391,7 +1391,7 @@
     }
 
     function clearCommunityMarkers() {
-      communityClusterGroup.clearLayers();
+      Object.values(communityMarkers).forEach(m => clusterGroup.removeLayer(m));
       communityMarkers = {};
     }
 
