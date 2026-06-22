@@ -1238,30 +1238,32 @@
     }
 
     // ── Render markers on map ──
+    function addMarker(loc) {
+      if (leafletMarkers[loc.id]) { map.removeLayer(leafletMarkers[loc.id]); delete leafletMarkers[loc.id]; }
+      const m = L.marker([loc.lat, loc.lng], { icon: createIcon(loc.color, loc.name), draggable: true }).addTo(map);
+      m.bindPopup(makePopupHtml(loc), { maxWidth: 260 });
+      m.on('dragend', async (e) => {
+        const { lat, lng } = e.target.getLatLng();
+        const cur = locations.find(l => l.id === loc.id);
+        const origLat = cur ? cur.lat : loc.lat;
+        const origLng = cur ? cur.lng : loc.lng;
+        if (!confirm(`Thay đổi tọa độ của "${loc.name}"?\n\nTừ: ${origLat.toFixed(5)}, ${origLng.toFixed(5)}\nĐến: ${lat.toFixed(5)}, ${lng.toFixed(5)}`)) {
+          e.target.setLatLng([origLat, origLng]);
+          return;
+        }
+        if (editingId === loc.id) {
+          document.getElementById('modal-lat').value = lat.toFixed(6);
+          document.getElementById('modal-lng').value = lng.toFixed(6);
+        }
+        await db.collection('locations').doc(String(loc.id)).update({ lat, lng });
+      });
+      leafletMarkers[loc.id] = m;
+    }
+
     function renderMarkers() {
-      // Xóa marker cũ
       Object.values(leafletMarkers).forEach(m => map.removeLayer(m));
       leafletMarkers = {};
-      locations.forEach(loc => {
-        const m = L.marker([loc.lat, loc.lng], { icon: createIcon(loc.color, loc.name), draggable: true }).addTo(map);
-        m.bindPopup(makePopupHtml(loc), { maxWidth: 260 });
-
-        m.on('dragend', async (e) => {
-          const { lat, lng } = e.target.getLatLng();
-          const origLat = loc.lat, origLng = loc.lng;
-          if (!confirm(`Thay đổi tọa độ của "${loc.name}"?\n\nTừ: ${origLat.toFixed(5)}, ${origLng.toFixed(5)}\nĐến: ${lat.toFixed(5)}, ${lng.toFixed(5)}`)) {
-            e.target.setLatLng([origLat, origLng]);
-            return;
-          }
-          if (editingId === loc.id) {
-            document.getElementById('modal-lat').value = lat.toFixed(6);
-            document.getElementById('modal-lng').value = lng.toFixed(6);
-          }
-          await db.collection('locations').doc(String(loc.id)).update({ lat, lng });
-        });
-
-        leafletMarkers[loc.id] = m;
-      });
+      locations.forEach(loc => addMarker(loc));
     }
 
     // ── Render sidebar list ──
@@ -1805,12 +1807,11 @@
       if (!name) { document.getElementById('field-name').focus(); return; }
       const get = id => document.getElementById(id).value.trim();
       const imagesList = getImagesFromForm();
-      const fields = {
+      const raw = {
         name,
         desc:      get('field-desc'),
         note:      get('field-note'),
         images:    imagesList,
-        image:     imagesList[0] || '',
         link:      get('field-link'),
         direction: get('field-direction'),
         acreage:   get('field-acreage'),
@@ -1828,13 +1829,22 @@
         color:     selectedColor,
       };
 
+      // Lọc field rỗng: bỏ qua khi add, xóa field khi update
+      const DEL = firebase.firestore.FieldValue.delete();
+      const fields = {};
+      for (const [k, v] of Object.entries(raw)) {
+        const empty = v === '' || v == null || (Array.isArray(v) && v.length === 0);
+        if (editingId !== null) fields[k] = empty ? DEL : v;
+        else if (!empty) fields[k] = v;
+      }
+
       if (editingId !== null) {
         await db.collection('locations').doc(String(editingId)).update(fields);
       } else {
         const id = Date.now();
         await db.collection('locations').doc(String(id)).set({
           id, lat: pendingLatLng.lat, lng: pendingLatLng.lng,
-          area: '', sortOrder: id, createdAt: id, ...fields
+          sortOrder: id, createdAt: id, ...fields
         });
         fetchArea(id, pendingLatLng.lat, pendingLatLng.lng);
       }
@@ -2286,21 +2296,71 @@
       );
     }
 
-    // ── Khởi tạo từ Firestore (real-time sync) ──
-    db.collection('locations').onSnapshot(snapshot => {
-      locations = snapshot.docs.map(doc => {
-        const d = doc.data();
-        return { ...d, id: d.id ?? Number(doc.id) };
-      });
-      locations.sort((a, b) =>
-        (a.sortOrder ?? a.createdAt ?? a.id ?? 0) - (b.sortOrder ?? b.createdAt ?? b.id ?? 0)
-      );
-      renderMarkers();
-      renderSidebar();
-    }, err => {
-      console.error('Firestore lỗi:', err);
-      alert('Không kết nối được Firestore. Kiểm tra internet hoặc cài đặt Firebase.');
-    });
+    // ── Firestore: viewport-based lazy-load ──
+    let viewportUnsub = null;
+
+    function applyDocChange(change) {
+      const d = change.doc.data();
+      const id = d.id ?? Number(change.doc.id);
+
+      if (change.type === 'removed') {
+        locations = locations.filter(l => l.id !== id);
+        if (leafletMarkers[id]) { map.removeLayer(leafletMarkers[id]); delete leafletMarkers[id]; }
+        return;
+      }
+
+      const loc = { ...d, id };
+      const idx = locations.findIndex(l => l.id === id);
+
+      if (change.type === 'added') {
+        if (idx < 0) {
+          locations.push(loc);
+          addMarker(loc);
+        } else {
+          // Đã có trong bộ nhớ — chỉ refresh data và popup
+          locations[idx] = loc;
+          leafletMarkers[id]?.setPopupContent(makePopupHtml(loc));
+        }
+      } else { // modified
+        if (idx >= 0) locations[idx] = loc; else locations.push(loc);
+        if (leafletMarkers[id]) {
+          leafletMarkers[id].setIcon(createIcon(loc.color, loc.name));
+          leafletMarkers[id].setLatLng([loc.lat, loc.lng]);
+          leafletMarkers[id].setPopupContent(makePopupHtml(loc));
+        } else {
+          addMarker(loc);
+        }
+      }
+    }
+
+    function loadByViewport() {
+      if (viewportUnsub) { viewportUnsub(); viewportUnsub = null; }
+      const b = map.getBounds().pad(0.15);
+
+      viewportUnsub = db.collection('locations')
+        .where('lat', '>=', b.getSouth())
+        .where('lat', '<=', b.getNorth())
+        .onSnapshot(snap => {
+          let changed = false;
+          snap.docChanges().forEach(change => {
+            const d = change.doc.data();
+            if (change.type !== 'removed' && (d.lng < b.getWest() || d.lng > b.getEast())) return;
+            applyDocChange(change);
+            changed = true;
+          });
+          if (changed) {
+            locations.sort((a, b) => (a.sortOrder ?? a.createdAt ?? a.id ?? 0) - (b.sortOrder ?? b.createdAt ?? b.id ?? 0));
+            renderSidebar();
+          }
+        }, err => {
+          console.error('Firestore lỗi:', err);
+          alert('Không kết nối được Firestore. Kiểm tra internet hoặc cài đặt Firebase.');
+        });
+    }
+
+    let vpTimer;
+    map.on('moveend', () => { clearTimeout(vpTimer); vpTimer = setTimeout(loadByViewport, 800); });
+    loadByViewport();
   </script>
 
   <!-- Đăng ký Service Worker (PWA offline) -->
