@@ -925,46 +925,96 @@
       });
     }
 
-    // ── Đo khoảng cách ──
+    // ── Đo khoảng cách / diện tích ──
     function clearMeasure() {
       measureGroup.clearLayers();
       measurePoints = [];
     }
 
-    function handleMeasureClick(latlng) {
+    function fmtDist(d) {
+      return d < 1000 ? Math.round(d) + ' m' : (d / 1000).toFixed(2) + ' km';
+    }
+
+    function geodesicArea(pts) {
+      const R = 6378137;
+      const toRad = d => d * Math.PI / 180;
+      let area = 0;
+      const n = pts.length;
+      for (let i = 0; i < n; i++) {
+        const p1 = pts[i], p2 = pts[(i + 1) % n];
+        area += toRad(p2.lng - p1.lng) * (2 + Math.sin(toRad(p1.lat)) + Math.sin(toRad(p2.lat)));
+      }
+      return Math.abs(area * R * R / 2);
+    }
+
+    function redrawMeasure() {
+      measureGroup.clearLayers();
+      const pts = measurePoints;
       const ptIcon = L.divIcon({
         className: '',
-        html: `<div style="width:11px;height:11px;background:#1a73e8;border:2.5px solid white;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.4)"></div>`,
+        html: `<div style="width:11px;height:11px;background:#2e7d32;border:2.5px solid white;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.4)"></div>`,
         iconSize: [11, 11], iconAnchor: [5, 5],
       });
-      measureGroup.addLayer(L.marker(latlng, { icon: ptIcon, interactive: false }));
-      measurePoints.push(latlng);
+      pts.forEach(p => measureGroup.addLayer(L.marker(p, { icon: ptIcon, interactive: false })));
 
-      if (measurePoints.length === 1) {
-        showHint('Nhấp điểm thứ hai để đo khoảng cách');
+      if (pts.length < 2) return;
+
+      const isPolygon = pts.length >= 3;
+      if (isPolygon) {
+        measureGroup.addLayer(L.polygon(pts, {
+          color: '#2e7d32', weight: 2.5, dashArray: '7,5',
+          fillColor: '#43a047', fillOpacity: 0.12, interactive: false,
+        }));
       } else {
-        const [p1, p2] = measurePoints;
-        const dist = map.distance(p1, p2);
-        const distStr = dist < 1000
-          ? Math.round(dist) + ' m'
-          : (dist / 1000).toFixed(2) + ' km';
+        measureGroup.addLayer(L.polyline(pts, {
+          color: '#2e7d32', weight: 2.5, dashArray: '7,5', opacity: 0.85, interactive: false,
+        }));
+      }
 
-        measureGroup.addLayer(
-          L.polyline([p1, p2], { color: '#1a73e8', weight: 2.5, dashArray: '7,5', opacity: 0.85, interactive: false })
-        );
+      const edges = isPolygon
+        ? pts.map((p, i) => [p, pts[(i + 1) % pts.length]])
+        : [[pts[0], pts[1]]];
 
+      edges.forEach(([p1, p2]) => {
         const mid = L.latLng((p1.lat + p2.lat) / 2, (p1.lng + p2.lng) / 2);
         measureGroup.addLayer(L.marker(mid, {
           icon: L.divIcon({
             className: '',
-            html: `<div style="transform:translate(-50%,-50%);background:#1a73e8;color:white;font-size:12px;font-weight:700;padding:4px 11px;border-radius:12px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.3);font-family:'Segoe UI',sans-serif">${distStr}</div>`,
+            html: `<div style="transform:translate(-50%,-50%);background:#2e7d32;color:white;font-size:11px;font-weight:700;padding:3px 8px;border-radius:10px;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.3);font-family:'Segoe UI',sans-serif">${fmtDist(map.distance(p1, p2))}</div>`,
             iconSize: [0, 0], iconAnchor: [0, 0],
           }),
           interactive: false,
         }));
+      });
 
-        showHint('📏 ' + distStr + ' — nhấp tiếp để đo đoạn mới');
-        measurePoints = [];
+      if (isPolygon) {
+        const area = geodesicArea(pts);
+        const cx = pts.reduce((s, p) => s + p.lat, 0) / pts.length;
+        const cy = pts.reduce((s, p) => s + p.lng, 0) / pts.length;
+        const areaStr = area < 10000 ? Math.round(area) + ' m²' : (area / 10000).toFixed(2) + ' ha';
+        measureGroup.addLayer(L.marker([cx, cy], {
+          icon: L.divIcon({
+            className: '',
+            html: `<div style="transform:translate(-50%,-50%);background:#1b5e20;color:white;font-size:13px;font-weight:700;padding:5px 14px;border-radius:12px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.35);font-family:'Segoe UI',sans-serif">DT: ${areaStr}</div>`,
+            iconSize: [0, 0], iconAnchor: [0, 0],
+          }),
+          interactive: false,
+        }));
+      }
+    }
+
+    function handleMeasureClick(latlng) {
+      measurePoints.push(latlng);
+      redrawMeasure();
+      const n = measurePoints.length;
+      if (n === 1) {
+        showHint('Nhấp tiếp để đo khoảng cách hoặc diện tích');
+      } else if (n === 2) {
+        showHint(`📏 ${fmtDist(map.distance(measurePoints[0], measurePoints[1]))} — nhấp tiếp để đo diện tích`);
+      } else {
+        const area = geodesicArea(measurePoints);
+        const areaStr = area < 10000 ? Math.round(area) + ' m²' : (area / 10000).toFixed(2) + ' ha';
+        showHint(`📐 DT: ${areaStr} — nhấp tiếp để thêm điểm, tắt 📏 để xóa`);
       }
     }
 
@@ -974,7 +1024,7 @@
         const wrap = L.DomUtil.create('div', 'measure-wrap leaflet-control');
         const btn = L.DomUtil.create('button', 'measure-btn', wrap);
         btn.innerHTML = '📏';
-        btn.title = 'Đo khoảng cách';
+        btn.title = 'Đo khoảng cách / diện tích';
         L.DomEvent.disableClickPropagation(wrap);
         L.DomEvent.on(btn, 'click', () => {
           measureMode = !measureMode;
