@@ -417,6 +417,12 @@
       color: #999;
       margin-top: 2px;
     }
+    .loc-meta-row {
+      display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin-top: 3px;
+    }
+    .loc-meta-row .loc-coords { margin-top: 0; }
+    .loc-meta-row .loc-status-badge { margin-top: 0; }
+    .loc-meta-row .loc-public-badge { margin-top: 0; }
     .loc-price {
       font-size: 0.75rem;
       color: #e65100;
@@ -1790,11 +1796,13 @@
           ${loc.desc ? `<div class="loc-desc">${esc(loc.desc)}</div>` : ''}
           ${loc.price ? `<div class="loc-price">💰 ${esc(loc.price)}</div>` : ''}
           ${loc.phone ? `<div class="loc-phone"><a href="tel:${esc(loc.phone)}" onclick="event.stopPropagation()">📞 ${esc(loc.phone)}</a></div>` : ''}
-          <div class="loc-coords">${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}</div>
-          ${loc.status ? `<span class="loc-status-badge ${loc.status === 'Đã bán' ? 'sold' : 'selling'}">${esc(loc.status)}</span>` : ''}
+          <div class="loc-meta-row">
+            <span class="loc-coords">${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}</span>
+            ${loc.status ? `<span class="loc-status-badge ${loc.status === 'Đã bán' ? 'sold' : 'selling'}">${esc(loc.status)}</span>` : ''}
+            ${loc.isPublic ? '<span class="loc-public-badge">🌍 Công khai</span>' : ''}
+          </div>
           ${loc.updatedDate ? `<div class="loc-updated">Cập nhật: ${loc.updatedDate.split('-').reverse().join('/')}</div>` : ''}
           ${loc.views ? `<div class="loc-views">👁 Đã xem: ${loc.views} lần</div>` : ''}
-          ${loc.isPublic ? '<div class="loc-public-badge">🌍 Công khai</div>' : ''}
         </div>
         <div class="loc-actions">
           <button class="btn-edit">Sửa</button>
