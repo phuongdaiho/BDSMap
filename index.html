@@ -929,7 +929,6 @@
     </div>
     <button onclick="searchLocation()">Tìm kiếm</button>
     <div class="sep"></div>
-    <button class="gray" onclick="goToMyLocation()">📍 Vị trí tôi</button>
     <div class="xml-menu-wrap" id="xml-menu-wrap">
       <button class="gray" onclick="toggleXmlMenu()">📁 XML ▾</button>
       <div class="xml-dropdown" id="xml-dropdown">
@@ -946,6 +945,9 @@
     <div id="map">
       <div id="map-hint">Click vào bản đồ để thêm địa điểm</div>
       <div id="layer-control">
+        <button id="btn-my-location" class="measure-btn" onclick="goToMyLocation()" title="Vị trí của tôi">
+          <div class="my-location-icon"><div class="ring"></div><div class="dot"></div></div>
+        </button>
         <button id="btn-toggle-community" class="measure-btn active" onclick="toggleCommunityMarkers()" title="Ẩn địa điểm cộng đồng">🌍</button>
         <button id="btn-layer-toggle" onclick="toggleLayerPicker()" title="Chế độ xem bản đồ">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
