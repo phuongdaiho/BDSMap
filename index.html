@@ -1843,7 +1843,8 @@
       document.getElementById('sidebar-count').textContent = locations.length;
 
       if (sidebarTab === 'community') {
-        if (!communityLocations.length) {
+        const displayCommunity = communityLocations.filter(loc => loc.ownerUid !== currentUser?.uid);
+        if (!displayCommunity.length) {
           list.innerHTML = '<div class="sidebar-empty">Không có địa điểm cộng đồng trong khu vực này.</div>';
           return;
         }
@@ -1861,7 +1862,7 @@
             }
           };
           const groups = {}, order = [];
-          communityLocations.forEach(loc => {
+          displayCommunity.forEach(loc => {
             const key = getKey(loc);
             if (!groups[key]) { groups[key] = []; order.push(key); }
             groups[key].push(loc);
@@ -1884,7 +1885,7 @@
             list.appendChild(body);
           });
         } else {
-          communityLocations.forEach(loc => list.appendChild(createCommunityLocItem(loc)));
+          displayCommunity.forEach(loc => list.appendChild(createCommunityLocItem(loc)));
         }
         return;
       }
@@ -3253,6 +3254,7 @@
       const doFilter = (uLat, uLng) => {
         quickViewUserPos = { lat: uLat, lng: uLng };
         quickViewItems = communityLocations
+          .filter(loc => loc.ownerUid !== currentUser?.uid)
           .filter(loc => !loc.status || loc.status === 'Đang bán')
           .map(loc => ({ ...loc, _dist: distKm(uLat, uLng, loc.lat, loc.lng) }))
           .filter(loc => loc._dist <= 5)
