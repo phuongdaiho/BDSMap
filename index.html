@@ -314,6 +314,29 @@
       display: inline-block;
     }
     .group-header.collapsed .group-chevron { transform: rotate(-90deg); }
+
+    /* ── Sidebar tabs ── */
+    .sidebar-tabs {
+      display: flex;
+      background: white;
+      border-bottom: 1px solid #e0e0e0;
+      flex-shrink: 0;
+    }
+    .sidebar-tab {
+      flex: 1;
+      padding: 8px 0;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #666;
+      border: none;
+      border-bottom: 2px solid transparent;
+      background: none;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+      font-family: inherit;
+    }
+    .sidebar-tab.active { color: #1a73e8; border-bottom-color: #1a73e8; }
+    .sidebar-tab:hover:not(.active) { color: #333; background: #f5f5f5; }
     .group-count {
       background: #1a73e8;
       color: white;
@@ -826,6 +849,10 @@
           <option value="color">🎨 Màu marker</option>
           <option value="price">💰 Giá dự kiến</option>
         </select>
+      </div>
+      <div class="sidebar-tabs">
+        <button class="sidebar-tab active" id="tab-personal" onclick="switchSidebarTab('personal')">Cá nhân</button>
+        <button class="sidebar-tab" id="tab-community" onclick="switchSidebarTab('community')">Cộng đồng</button>
       </div>
       <div id="location-list">
         <div class="sidebar-empty">Chưa có địa điểm nào.<br/>Click lên bản đồ để thêm.</div>
@@ -1546,6 +1573,7 @@
     let dragSrcId = null;
     let didDrag = false;
     let groupByField = '';
+    let sidebarTab = 'personal';
     const collapsedGroups = new Set();
     const COLOR_NAMES = {'#e53935':'Đỏ','#1a73e8':'Xanh lam','#43a047':'Xanh lá','#f57c00':'Cam','#8e24aa':'Tím'};
 
@@ -1630,9 +1658,58 @@
       return item;
     }
 
+    function switchSidebarTab(tab) {
+      sidebarTab = tab;
+      document.getElementById('tab-personal').classList.toggle('active', tab === 'personal');
+      document.getElementById('tab-community').classList.toggle('active', tab === 'community');
+      document.getElementById('group-by').style.display = tab === 'personal' ? '' : 'none';
+      renderSidebar();
+    }
+
+    function flyToCommunity(id) {
+      const loc = communityLocations.find(l => l.id === id);
+      if (!loc) return;
+      if (!sidebarVisible) toggleSidebar();
+      map.flyTo([loc.lat, loc.lng], Math.max(map.getZoom(), 16), { duration: 0.8 });
+      setTimeout(() => { if (communityMarkers[id]) communityMarkers[id].openPopup(); }, 850);
+    }
+
+    function createCommunityLocItem(loc) {
+      const item = document.createElement('div');
+      item.className = 'loc-item';
+      item.dataset.id = loc.id;
+      const isOwn = appMode === 'user' && currentUser && loc.ownerUid === currentUser.uid;
+      item.innerHTML = `
+        <div class="loc-pin" style="background:${loc.color || '#1a73e8'}"></div>
+        <div class="loc-info">
+          <div class="loc-name">${esc(loc.name)}</div>
+          ${loc.desc  ? `<div class="loc-desc">${esc(loc.desc)}</div>` : ''}
+          ${loc.price ? `<div class="loc-price">💰 ${esc(loc.price)}</div>` : ''}
+          ${loc.phone ? `<div class="loc-phone"><a href="tel:${esc(loc.phone)}" onclick="event.stopPropagation()">📞 ${esc(loc.phone)}</a></div>` : ''}
+          <div class="loc-coords">${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}</div>
+        </div>
+        ${isOwn ? `<div class="loc-actions"><button class="btn-edit">Sửa</button><button class="btn-del">Xóa</button></div>` : ''}`;
+      if (isOwn) {
+        item.querySelector('.btn-edit').addEventListener('click', e => { e.stopPropagation(); editLocation(loc.id); });
+        item.querySelector('.btn-del').addEventListener('click', e => { e.stopPropagation(); deleteLocation(loc.id); });
+      }
+      item.addEventListener('click', () => flyToCommunity(loc.id));
+      return item;
+    }
+
     function renderSidebar() {
       const list = document.getElementById('location-list');
       document.getElementById('sidebar-count').textContent = locations.length;
+
+      if (sidebarTab === 'community') {
+        if (!communityLocations.length) {
+          list.innerHTML = '<div class="sidebar-empty">Không có địa điểm cộng đồng trong khu vực này.</div>';
+        } else {
+          list.innerHTML = '';
+          communityLocations.forEach(loc => list.appendChild(createCommunityLocItem(loc)));
+        }
+        return;
+      }
 
       if (!locations.length) {
         list.innerHTML = '<div class="sidebar-empty">Chưa có địa điểm nào.<br/>Click lên bản đồ để thêm.</div>';
@@ -1717,6 +1794,7 @@
               }
             }
           });
+          if (sidebarTab === 'community') renderSidebar();
         });
     }
 
@@ -2671,26 +2749,56 @@
     }
 
     // ── Vị trí tôi ──
-    function goToMyLocation() {
-      if (!navigator.geolocation) { alert('Trình duyệt không hỗ trợ định vị.'); return; }
-      navigator.geolocation.getCurrentPosition(
+    let myLocationWatchId = null;
+
+    const myLocationIcon = L.divIcon({
+      className: '',
+      html: '<div class="my-location-icon"><div class="ring"></div><div class="dot"></div></div>',
+      iconSize: [18, 18],
+      iconAnchor: [9, 9],
+    });
+
+    function startLocationWatch(centerMap, openPopupOnFirst) {
+      if (!navigator.geolocation) return;
+      if (myLocationWatchId !== null) {
+        if (centerMap && myLocationMarker) map.setView(myLocationMarker.getLatLng(), 16);
+        if (openPopupOnFirst && myLocationMarker) myLocationMarker.openPopup();
+        return;
+      }
+      let isFirst = true;
+      myLocationWatchId = navigator.geolocation.watchPosition(
         ({ coords }) => {
           const lat = coords.latitude, lng = coords.longitude;
-          map.setView([lat, lng], 16);
-          if (myLocationMarker) map.removeLayer(myLocationMarker);
-          const icon = L.divIcon({
-            className: '',
-            html: '<div class="my-location-icon"><div class="ring"></div><div class="dot"></div></div>',
-            iconSize: [18, 18],
-            iconAnchor: [9, 9],
-          });
-          myLocationMarker = L.marker([lat, lng], { icon, zIndexOffset: 1000 })
-            .addTo(map)
-            .bindPopup(`<b>Vị trí của bạn</b><br><span style="font-size:0.8rem;color:#666">${lat.toFixed(5)}, ${lng.toFixed(5)}</span>`)
-            .openPopup();
+          if (!myLocationMarker) {
+            myLocationMarker = L.marker([lat, lng], { icon: myLocationIcon, zIndexOffset: 1000 }).addTo(map);
+            myLocationMarker.bindPopup(`<b>Vị trí của bạn</b><br><span style="font-size:0.8rem;color:#666">${lat.toFixed(5)}, ${lng.toFixed(5)}</span>`);
+          } else {
+            myLocationMarker.setLatLng([lat, lng]);
+            myLocationMarker.setPopupContent(`<b>Vị trí của bạn</b><br><span style="font-size:0.8rem;color:#666">${lat.toFixed(5)}, ${lng.toFixed(5)}</span>`);
+          }
+          if (isFirst) {
+            if (centerMap) map.setView([lat, lng], 16);
+            if (openPopupOnFirst) myLocationMarker.openPopup();
+            isFirst = false;
+          }
         },
-        () => alert('Không thể lấy vị trí. Vui lòng cho phép quyền truy cập.')
+        () => { myLocationWatchId = null; },
+        { enableHighAccuracy: true, maximumAge: 5000 }
       );
+    }
+
+    function goToMyLocation() {
+      if (!navigator.geolocation) { alert('Trình duyệt không hỗ trợ định vị.'); return; }
+      if (myLocationWatchId !== null && myLocationMarker) {
+        map.setView(myLocationMarker.getLatLng(), 16);
+        myLocationMarker.openPopup();
+        return;
+      }
+      startLocationWatch(true, true);
+    }
+
+    function initLocationWatch() {
+      startLocationWatch(true, false);
     }
 
     // ── Firestore: viewport-based lazy-load ──
@@ -2761,6 +2869,7 @@
       leafletMarkers = {};
       loadByViewport();
       loadCommunityByViewport();
+      initLocationWatch();
     }
 
     let vpTimer;
@@ -2913,6 +3022,7 @@
       updateModeBadge();
       loadGuestData();
       loadCommunityByViewport();
+      initLocationWatch();
     }
 
     async function offerGuestMigration() {
