@@ -3394,6 +3394,7 @@
             ${dist ? `<span class="qv-dist">📍 ${dist} km</span>` : ''}
             ${loc.updatedDate ? `<span class="qv-date">Cập nhật: ${fmtDate(loc.updatedDate)}</span>` : ''}
           </div>
+          <div class="qv-row" style="font-size:0.75rem;color:#888">🌐 ${loc.lat.toFixed(5)}, ${loc.lng.toFixed(5)}</div>
           ${loc.price      ? `<div class="qv-price">💰 ${esc(loc.price)}</div>` : ''}
           ${loc.area       ? `<div class="qv-area-name">📌 ${esc(loc.area)}</div>` : ''}
           ${details        ? `<div class="qv-details">${details}</div>` : ''}
