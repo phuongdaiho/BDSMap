@@ -66,14 +66,17 @@
       transition: background 0.2s;
     }
     #toggle-sidebar:hover { background: rgba(255,255,255,0.3); }
-    #sidebar-count {
-      background: white;
-      color: #1a73e8;
+    .tab-count {
+      display: inline-block;
+      background: #bdbdbd;
+      color: white;
       border-radius: 10px;
-      padding: 1px 7px;
-      font-size: 0.78rem;
+      padding: 1px 6px;
+      font-size: 0.72rem;
       font-weight: 700;
+      margin-left: 4px;
     }
+    .sidebar-tab.active .tab-count { background: #1a73e8; }
 
     /* ── Search bar ── */
     .search-bar {
@@ -918,7 +921,7 @@
     </button>
     <button id="btn-quickview" onclick="openQuickView()" title="Xem nhanh BĐS đang bán trong bán kính 5 km">🏠 Đang bán</button>
     <button id="toggle-sidebar" onclick="toggleSidebar()">
-      📋 Của tôi <span id="sidebar-count">0</span>
+      📋 Của tôi
     </button>
   </header>
 
@@ -976,8 +979,8 @@
         </select>
       </div>
       <div class="sidebar-tabs">
-        <button class="sidebar-tab active" id="tab-personal" onclick="switchSidebarTab('personal')">Cá nhân</button>
-        <button class="sidebar-tab" id="tab-community" onclick="switchSidebarTab('community')">Cộng đồng</button>
+        <button class="sidebar-tab active" id="tab-personal" onclick="switchSidebarTab('personal')">Cá nhân<span class="tab-count" id="count-personal">0</span></button>
+        <button class="sidebar-tab" id="tab-community" onclick="switchSidebarTab('community')">Cộng đồng<span class="tab-count" id="count-community">0</span></button>
       </div>
       <div id="location-list">
         <div class="sidebar-empty">Chưa có địa điểm nào.<br/>Click lên bản đồ để thêm.</div>
@@ -1863,7 +1866,8 @@
 
     function renderSidebar() {
       const list = document.getElementById('location-list');
-      document.getElementById('sidebar-count').textContent = locations.length;
+      document.getElementById('count-personal').textContent = locations.length;
+      document.getElementById('count-community').textContent = communityLocations.filter(loc => loc.ownerUid !== currentUser?.uid).length;
 
       if (sidebarTab === 'community') {
         const displayCommunity = communityLocations.filter(loc => loc.ownerUid !== currentUser?.uid);
