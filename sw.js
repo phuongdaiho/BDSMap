@@ -1,4 +1,4 @@
-const CACHE = 'bandog-v18';
+const CACHE = 'bandog-v19';
 const CORE = [
   './index.html',
   './manifest.json',
