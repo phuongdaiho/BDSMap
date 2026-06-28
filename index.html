@@ -779,6 +779,16 @@
     .toggle-switch input:checked + .toggle-track .toggle-thumb { transform: translateX(18px); }
     #public-toggle-label { font-size: 0.82rem; color: #666; }
 
+    /* ── Status badge & updated date on sidebar item ── */
+    .loc-status-badge {
+      display: inline-block; font-size: 0.68rem; border-radius: 4px;
+      padding: 1px 7px; margin-top: 3px; font-weight: 600; color: white;
+    }
+    .loc-status-badge.sold { background: #d93025; }
+    .loc-status-badge.selling { background: #43a047; }
+    .loc-updated {
+      font-size: 0.68rem; color: #aaa; margin-top: 2px;
+    }
     /* ── Public badge on sidebar item ── */
     .loc-public-badge {
       display: inline-block; font-size: 0.68rem; background: #e8f5e9; color: #2e7d32;
@@ -995,6 +1005,19 @@
             <option value="Không">
             <option value="Để lại toàn bộ nội thất">
           </datalist>
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="flex:1.2">
+            <label>Tình trạng BĐS</label>
+            <select id="field-status">
+              <option value="Đang bán">Đang bán</option>
+              <option value="Đã bán">Đã bán</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex:1">
+            <label>Ngày cập nhật</label>
+            <input type="date" id="field-updated-date" />
+          </div>
         </div>
         <div class="form-group">
           <label>Màu marker</label>
@@ -1478,6 +1501,10 @@
       const link = loc.link ? `<div style="margin-top:5px"><a href="${esc(loc.link)}" target="_blank" rel="noopener" style="color:#1a73e8;font-size:0.78rem;word-break:break-all">🔗 ${linkDisplay}</a></div>` : '';
       const phone = loc.phone ? `<div style="margin-top:5px;display:flex;align-items:center;gap:6px"><span style="color:#333;font-size:0.82rem">📞 ${esc(loc.phone)}</span><a href="tel:${esc(loc.phone)}" style="background:#43a047;color:white;border-radius:6px;padding:2px 9px;font-size:0.75rem;text-decoration:none">Gọi</a></div>` : '';
       const coords = `<div style="color:#aaa;font-size:0.72rem;margin-top:4px">📍 ${loc.lat.toFixed(5)}, ${loc.lng.toFixed(5)}</div>`;
+      const fmtDate = d => { if (!d) return ''; const [y,m,dd] = d.split('-'); return `${dd}/${m}/${y}`; };
+      const statusColor = loc.status === 'Đã bán' ? '#d93025' : '#43a047';
+      const statusBadge = loc.status ? `<span style="display:inline-block;background:${statusColor};color:white;border-radius:4px;padding:1px 8px;font-size:0.7rem;font-weight:600;margin-top:4px">${esc(loc.status)}</span>` : '';
+      const updatedDate = loc.updatedDate ? `<div style="color:#aaa;font-size:0.7rem;margin-top:2px">Cập nhật: ${fmtDate(loc.updatedDate)}</div>` : '';
       const ownerBadge = isCommunity
         ? `<div style="font-size:0.72rem;color:#2e7d32;margin-top:3px">🌍 ${esc((loc.ownerEmail || '').split('@')[0])}</div>`
         : '';
@@ -1516,7 +1543,8 @@
       return `<div style="font-family:sans-serif;min-width:200px;max-width:260px;padding:2px 0">
         ${image}
         <strong style="font-size:0.92rem;color:#202124;display:block;margin-top:6px">${esc(loc.name)}</strong>
-        ${desc}${note}${link}${phone}${coords}${ownerBadge}${landSection}${assetSection}
+        ${statusBadge}
+        ${desc}${note}${link}${phone}${coords}${updatedDate}${ownerBadge}${landSection}${assetSection}
         <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
           ${(!isCommunity || currentUser?.uid === loc.ownerUid) ? `<button onclick="editLocation(${loc.id})" style="border:1px solid #1a73e8;background:#e8f0fe;color:#1a73e8;border-radius:6px;padding:3px 10px;font-size:0.78rem;cursor:pointer">Sửa</button>
           <button onclick="deleteLocation(${loc.id})" style="border:1px solid #d93025;background:#fce8e6;color:#d93025;border-radius:6px;padding:3px 10px;font-size:0.78rem;cursor:pointer">Xóa</button>` : ''}
@@ -1593,6 +1621,8 @@
           ${loc.price ? `<div class="loc-price">💰 ${esc(loc.price)}</div>` : ''}
           ${loc.phone ? `<div class="loc-phone"><a href="tel:${esc(loc.phone)}" onclick="event.stopPropagation()">📞 ${esc(loc.phone)}</a></div>` : ''}
           <div class="loc-coords">${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}</div>
+          ${loc.status ? `<span class="loc-status-badge ${loc.status === 'Đã bán' ? 'sold' : 'selling'}">${esc(loc.status)}</span>` : ''}
+          ${loc.updatedDate ? `<div class="loc-updated">Cập nhật: ${loc.updatedDate.split('-').reverse().join('/')}</div>` : ''}
           ${loc.isPublic ? '<div class="loc-public-badge">🌍 Công khai</div>' : ''}
         </div>
         <div class="loc-actions">
@@ -1686,6 +1716,8 @@
           ${loc.price ? `<div class="loc-price">💰 ${esc(loc.price)}</div>` : ''}
           ${loc.phone ? `<div class="loc-phone"><a href="tel:${esc(loc.phone)}" onclick="event.stopPropagation()">📞 ${esc(loc.phone)}</a></div>` : ''}
           <div class="loc-coords">${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}</div>
+          ${loc.status ? `<span class="loc-status-badge ${loc.status === 'Đã bán' ? 'sold' : 'selling'}">${esc(loc.status)}</span>` : ''}
+          ${loc.updatedDate ? `<div class="loc-updated">Cập nhật: ${loc.updatedDate.split('-').reverse().join('/')}</div>` : ''}
         </div>
         ${isOwn ? `<div class="loc-actions"><button class="btn-edit">Sửa</button><button class="btn-del">Xóa</button></div>` : ''}`;
       if (isOwn) {
@@ -2069,6 +2101,8 @@
       set('field-legal',     data.legal);
       set('field-interior',  data.interior);
       set('field-phone',     data.phone);
+      document.getElementById('field-status').value = data.status || 'Đang bán';
+      document.getElementById('field-updated-date').value = data.updatedDate || new Date().toISOString().slice(0, 10);
       const phoneBtn = document.getElementById('call-btn-modal');
       if (data.phone) { phoneBtn.href = 'tel:' + data.phone; phoneBtn.style.display = 'inline-block'; }
       else phoneBtn.style.display = 'none';
@@ -2257,8 +2291,10 @@
         roadWidth: get('field-roadwidth'),
         legal:     get('field-legal'),
         interior:  get('field-interior'),
-        phone:     get('field-phone'),
-        color:     selectedColor,
+        phone:       get('field-phone'),
+        status:      document.getElementById('field-status').value || 'Đang bán',
+        updatedDate: get('field-updated-date') || new Date().toISOString().slice(0, 10),
+        color:       selectedColor,
       };
 
       if (appMode === 'guest') {

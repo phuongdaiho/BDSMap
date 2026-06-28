@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Xuất dữ liệu Firestore → XML</title>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; max-width: 480px; margin: 60px auto; padding: 0 20px; color: #202124; }
+    h2 { color: #1a73e8; margin-bottom: 24px; }
+    input { width: 100%; padding: 10px 14px; border: 1px solid #ddd; border-radius: 8px; font-size: 1rem; margin-bottom: 12px; box-sizing: border-box; }
+    input:focus { outline: none; border-color: #1a73e8; }
+    button { width: 100%; padding: 11px; background: #1a73e8; color: white; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; }
+    button:hover { background: #1557b0; }
+    button:disabled { background: #aaa; cursor: not-allowed; }
+    #status { margin-top: 16px; padding: 10px 14px; border-radius: 8px; font-size: 0.9rem; display: none; }
+    #status.ok { background: #e6f4ea; color: #1e6823; }
+    #status.err { background: #fce8e6; color: #c5221f; }
+    #status.info { background: #e8f0fe; color: #1a73e8; }
+  </style>
+</head>
+<body>
+  <h2>📤 Xuất dữ liệu Firestore → XML</h2>
+  <input id="email" type="email" placeholder="Email" autocomplete="email" />
+  <input id="password" type="password" placeholder="Mật khẩu" autocomplete="current-password" />
+  <button id="btn" onclick="run()">Đăng nhập &amp; Tải xuống</button>
+  <div id="status"></div>
+
+  <script>
+    firebase.initializeApp({
+      apiKey: "AIzaSyBuuxnR8w8Sd2VSuMfU8Sx7S3aoYLWneD8",
+      authDomain: "bdsmap-3b584.firebaseapp.com",
+      projectId: "bdsmap-3b584",
+      storageBucket: "bdsmap-3b584.firebasestorage.app",
+      messagingSenderId: "1040944177628",
+      appId: "1:1040944177628:web:147c05fd57d278c333ef19"
+    });
+    const auth = firebase.auth();
+    const db   = firebase.firestore();
+
+    function show(msg, type) {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = type;
+      el.style.display = 'block';
+    }
+
+    function xmlEsc(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+    }
+
+    function toXml(docs) {
+      const rows = docs.map(loc => `  <location>
+    <id>${loc.id}</id>
+    <lat>${loc.lat}</lat>
+    <lng>${loc.lng}</lng>
+    <name>${xmlEsc(loc.name)}</name>
+    <desc>${xmlEsc(loc.desc)}</desc>
+    <note>${xmlEsc(loc.note)}</note>
+    <image>${xmlEsc(loc.image)}</image>
+    <images>${xmlEsc((loc.images||[]).join('|||'))}</images>
+    <link>${xmlEsc(loc.link)}</link>
+    <color>${xmlEsc(loc.color)}</color>
+    <area>${xmlEsc(loc.area)}</area>
+    <direction>${xmlEsc(loc.direction)}</direction>
+    <acreage>${xmlEsc(loc.acreage)}</acreage>
+    <width>${xmlEsc(loc.width)}</width>
+    <length>${xmlEsc(loc.length)}</length>
+    <price>${xmlEsc(loc.price)}</price>
+    <buildArea>${xmlEsc(loc.buildArea)}</buildArea>
+    <floorArea>${xmlEsc(loc.floorArea)}</floorArea>
+    <structure>${xmlEsc(loc.structure)}</structure>
+    <usage>${xmlEsc(loc.usage)}</usage>
+    <roadWidth>${xmlEsc(loc.roadWidth)}</roadWidth>
+    <legal>${xmlEsc(loc.legal)}</legal>
+    <interior>${xmlEsc(loc.interior)}</interior>
+    <phone>${xmlEsc(loc.phone)}</phone>
+    <status>${xmlEsc(loc.status)}</status>
+    <updatedDate>${xmlEsc(loc.updatedDate)}</updatedDate>
+    <isPublic>${loc.isPublic ? 'true' : 'false'}</isPublic>
+  </location>`).join('\n');
+      return `<?xml version="1.0" encoding="UTF-8"?>\n<locations>\n${rows}\n</locations>`;
+    }
+
+    function download(xml) {
+      const blob = new Blob([xml], { type: 'text/xml;charset=utf-8' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url; a.download = 'data.xml'; a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    async function run() {
+      const email    = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const btn      = document.getElementById('btn');
+      if (!email || !password) { show('Vui lòng nhập email và mật khẩu.', 'err'); return; }
+
+      btn.disabled = true;
+      show('Đang đăng nhập…', 'info');
+
+      try {
+        const cred = await auth.signInWithEmailAndPassword(email, password);
+        const uid  = cred.user.uid;
+        show('Đang tải dữ liệu từ Firestore…', 'info');
+
+        const snap = await db.collection('users').doc(uid).collection('locations').get();
+        const docs = snap.docs.map(d => ({ ...d.data(), id: d.data().id ?? d.id }));
+
+        if (!docs.length) { show('Không có record nào trong collection locations.', 'err'); btn.disabled = false; return; }
+
+        download(toXml(docs));
+        show(`✅ Đã xuất ${docs.length} địa điểm → data.xml`, 'ok');
+        await auth.signOut();
+      } catch (err) {
+        const msg = {
+          'auth/wrong-password':    'Sai mật khẩu.',
+          'auth/user-not-found':    'Email chưa được đăng ký.',
+          'auth/invalid-email':     'Email không hợp lệ.',
+          'auth/too-many-requests': 'Quá nhiều lần thử. Vui lòng thử lại sau.',
+          'auth/invalid-credential':'Sai email hoặc mật khẩu. Nếu bạn đăng nhập bằng Google, tài khoản không có mật khẩu — hãy đặt mật khẩu trong Firebase Console trước.',
+        }[err.code] || err.message;
+        show(msg, 'err');
+      }
+      btn.disabled = false;
+    }
+
+    document.addEventListener('keydown', e => { if (e.key === 'Enter') run(); });
+  </script>
+</body>
+</html>
