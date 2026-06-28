@@ -1793,11 +1793,9 @@
         <div class="loc-pin" style="background:${loc.color}"></div>
         <div class="loc-info">
           <div class="loc-name">${esc(loc.name)}</div>
-          ${loc.desc ? `<div class="loc-desc">${esc(loc.desc)}</div>` : ''}
           ${loc.price ? `<div class="loc-price">💰 ${esc(loc.price)}</div>` : ''}
           ${loc.phone ? `<div class="loc-phone"><a href="tel:${esc(loc.phone)}" onclick="event.stopPropagation()">📞 ${esc(loc.phone)}</a></div>` : ''}
           <div class="loc-meta-row">
-            <span class="loc-coords">${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}</span>
             ${loc.status ? `<span class="loc-status-badge ${loc.status === 'Đã bán' ? 'sold' : 'selling'}">${esc(loc.status)}</span>` : ''}
             ${loc.isPublic ? '<span class="loc-public-badge" title="Công khai">🌍</span>' : ''}
           </div>
@@ -1891,11 +1889,11 @@
         <div class="loc-pin" style="background:${loc.color || '#1a73e8'}"></div>
         <div class="loc-info">
           <div class="loc-name">${esc(loc.name)}</div>
-          ${loc.desc  ? `<div class="loc-desc">${esc(loc.desc)}</div>` : ''}
           ${loc.price ? `<div class="loc-price">💰 ${esc(loc.price)}</div>` : ''}
           ${loc.phone ? `<div class="loc-phone"><a href="tel:${esc(loc.phone)}" onclick="event.stopPropagation()">📞 ${esc(loc.phone)}</a></div>` : ''}
-          <div class="loc-coords">${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}</div>
-          ${loc.status ? `<span class="loc-status-badge ${loc.status === 'Đã bán' ? 'sold' : 'selling'}">${esc(loc.status)}</span>` : ''}
+          <div class="loc-meta-row">
+            ${loc.status ? `<span class="loc-status-badge ${loc.status === 'Đã bán' ? 'sold' : 'selling'}">${esc(loc.status)}</span>` : ''}
+          </div>
           ${loc.updatedDate ? `<div class="loc-updated">Cập nhật: ${loc.updatedDate.split('-').reverse().join('/')}</div>` : ''}
           ${loc.views ? `<div class="loc-views">👁 Đã xem: ${loc.views} lần</div>` : ''}
         </div>
