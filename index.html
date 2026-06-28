@@ -138,6 +138,20 @@
       transition: background 0.2s;
     }
     .gray-btn:hover { background: #3c4043; }
+    .xml-menu-wrap { position: relative; flex-shrink: 0; }
+    .xml-dropdown {
+      display: none; position: absolute; top: calc(100% + 4px); left: 0;
+      background: white; border: 1px solid #e0e0e0; border-radius: 10px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.18); min-width: 140px;
+      flex-direction: column; z-index: 2000; overflow: hidden;
+    }
+    .xml-dropdown.open { display: flex; }
+    .xml-dropdown button, .xml-dropdown label {
+      background: none; border: none; padding: 10px 16px;
+      font-size: 0.88rem; cursor: pointer; text-align: left;
+      color: #202124; white-space: nowrap; font-family: inherit; display: block;
+    }
+    .xml-dropdown button:hover, .xml-dropdown label:hover { background: #f1f3f4; }
     .search-bar .sep { width: 1px; height: 22px; background: #e0e0e0; flex-shrink: 0; }
 
     /* ── Layer control (floating, trên nút đo khoảng cách, góc dưới trái) ── */
@@ -913,11 +927,16 @@
     <div class="sep"></div>
     <button class="gray" onclick="goToMyLocation()">📍 Vị trí tôi</button>
     <button id="btn-toggle-community" class="gray" onclick="toggleCommunityMarkers()" title="Ẩn/hiện địa điểm cộng đồng">🌍 Cộng đồng</button>
-    <button id="btn-save-xml" class="gray" onclick="saveXML()" title="Lưu toàn bộ dữ liệu ra file data.xml">💾 Lưu XML</button>
-    <label class="gray-btn" title="Mở file data.xml">
-      📂 Mở XML
-      <input type="file" id="import-xml" accept=".xml" style="display:none" onchange="importXML(event)" />
-    </label>
+    <div class="xml-menu-wrap" id="xml-menu-wrap">
+      <button class="gray" onclick="toggleXmlMenu()">📁 XML ▾</button>
+      <div class="xml-dropdown" id="xml-dropdown">
+        <button id="btn-save-xml" onclick="saveXML();closeXmlMenu()" title="Lưu toàn bộ dữ liệu ra file data.xml">💾 Lưu XML</button>
+        <label title="Mở file data.xml" onclick="closeXmlMenu()">
+          📂 Mở XML
+          <input type="file" id="import-xml" accept=".xml" style="display:none" onchange="importXML(event)" />
+        </label>
+      </div>
+    </div>
   </div>
 
   <div class="main">
@@ -2144,6 +2163,16 @@
         btn.textContent = '💾 Lưu XML';
       }
     }
+
+    function toggleXmlMenu() {
+      document.getElementById('xml-dropdown').classList.toggle('open');
+    }
+    function closeXmlMenu() {
+      document.getElementById('xml-dropdown').classList.remove('open');
+    }
+    document.addEventListener('click', e => {
+      if (!document.getElementById('xml-menu-wrap')?.contains(e.target)) closeXmlMenu();
+    });
 
     // Nhập file XML
     function importXML(event) {
