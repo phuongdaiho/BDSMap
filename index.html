@@ -859,19 +859,27 @@
     .qv-btn-map:hover { background: #1557b0; }
 
     /* ── Mode badge (header) ── */
-    #mode-badge {
-      background: rgba(255,255,255,0.2);
-      border: none; color: white; border-radius: 8px;
-      padding: 5px 10px; font-size: 0.78rem; cursor: pointer;
-      display: flex; align-items: center; gap: 5px;
-      transition: background 0.2s; white-space: nowrap; flex-shrink: 0;
-    }
-    #mode-badge:hover { background: rgba(255,255,255,0.35); }
     .mode-dot {
       width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
     }
     .mode-dot.guest { background: #fbbc04; }
     .mode-dot.user  { background: #34a853; }
+    .sidebar-user-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 14px 7px; border-bottom: 1px solid #e0e0e0;
+    }
+    #sidebar-user-label {
+      flex: 1; font-size: 0.78rem; color: #555;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    #sidebar-auth-btn {
+      font-size: 0.75rem; padding: 3px 10px; border-radius: 6px;
+      border: 1px solid #1a73e8; color: #1a73e8;
+      background: white; cursor: pointer; white-space: nowrap; flex-shrink: 0;
+    }
+    #sidebar-auth-btn:hover { background: #e8f0fe; }
+    #sidebar-auth-btn.logout { border-color: #d93025; color: #d93025; }
+    #sidebar-auth-btn.logout:hover { background: #fce8e6; }
 
     /* ── Public toggle in modal ── */
     .public-toggle-row { display: flex; align-items: center; gap: 10px; }
@@ -918,13 +926,9 @@
   <header>
     <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
     <h1>Bản đồ</h1>
-    <button id="mode-badge" onclick="openAuthModal()">
-      <div class="mode-dot guest" id="mode-dot"></div>
-      <span id="mode-label">Khách</span>
-    </button>
     <button id="btn-quickview" onclick="openQuickView()" title="Xem nhanh BĐS đang bán trong bán kính 5 km">🏠 Xem nhanh</button>
     <button id="toggle-sidebar" onclick="toggleSidebar()">
-      📋 Của tôi
+      📋 Của tôi<span class="mode-dot guest" id="mode-dot" style="margin-left:4px"></span>
     </button>
   </header>
 
@@ -969,6 +973,10 @@
     <div id="sidebar-backdrop" onclick="toggleSidebar()"></div>
     <div id="sidebar">
 
+      <div class="sidebar-user-row">
+        <span id="sidebar-user-label">👤 Khách</span>
+        <button id="sidebar-auth-btn" onclick="openAuthModal()">Đăng nhập</button>
+      </div>
       <div class="sidebar-header">
         <span style="font-size:0.85rem;font-weight:600;color:#202124;flex:1">Danh sách địa điểm</span>
         <select id="group-by" title="Nhóm theo trường">
@@ -3124,29 +3132,9 @@
       document.getElementById('auth-success').classList.remove('show');
       document.getElementById('auth-email').value = '';
       document.getElementById('auth-password').value = '';
-      if (currentUser) {
-        // Đã đăng nhập → hiện thông tin + nút logout
-        document.getElementById('auth-subtitle').textContent = currentUser.email;
-        document.getElementById('auth-submit-btn').textContent = 'Đăng xuất';
-        document.getElementById('auth-submit-btn').onclick = authLogout;
-        document.getElementById('tab-login').style.display = 'none';
-        document.getElementById('tab-register').style.display = 'none';
-        document.querySelector('.auth-divider').style.display = 'none';
-        document.querySelector('.auth-btn-guest').style.display = 'none';
-        document.getElementById('auth-email').style.display = 'none';
-        document.getElementById('auth-password').style.display = 'none';
-        document.getElementById('auth-forgot-wrap').style.display = 'none';
-      } else {
-        switchAuthTab('login');
-        document.getElementById('tab-login').style.display = '';
-        document.getElementById('tab-register').style.display = '';
-        document.querySelector('.auth-divider').style.display = '';
-        document.querySelector('.auth-btn-guest').style.display = '';
-        document.getElementById('auth-email').style.display = '';
-        document.getElementById('auth-password').style.display = '';
-        document.getElementById('auth-subtitle').textContent = 'Đăng nhập để đồng bộ dữ liệu đa thiết bị';
-        document.getElementById('auth-submit-btn').onclick = authSubmit;
-      }
+      switchAuthTab('login');
+      document.getElementById('auth-subtitle').textContent = 'Đăng nhập để đồng bộ dữ liệu đa thiết bị';
+      document.getElementById('auth-submit-btn').onclick = authSubmit;
       document.getElementById('auth-overlay').classList.remove('hidden');
     }
 
@@ -3236,15 +3224,22 @@
     }
 
     function updateModeBadge() {
-      const dot   = document.getElementById('mode-dot');
-      const label = document.getElementById('mode-label');
+      const dot       = document.getElementById('mode-dot');
+      const userLabel = document.getElementById('sidebar-user-label');
+      const authBtn   = document.getElementById('sidebar-auth-btn');
       if (appMode === 'user' && currentUser) {
         dot.className = 'mode-dot user';
         const name = currentUser.email.split('@')[0];
-        label.textContent = name.length > 12 ? name.slice(0, 12) + '…' : name;
+        userLabel.textContent = '✉ ' + (name.length > 20 ? name.slice(0, 20) + '…' : name);
+        authBtn.textContent = 'Đăng xuất';
+        authBtn.className = 'logout';
+        authBtn.onclick = authLogout;
       } else {
         dot.className = 'mode-dot guest';
-        label.textContent = 'Khách';
+        userLabel.textContent = '👤 Khách';
+        authBtn.textContent = 'Đăng nhập';
+        authBtn.className = '';
+        authBtn.onclick = openAuthModal;
       }
     }
 
