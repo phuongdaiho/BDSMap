@@ -1796,10 +1796,9 @@
       }
     }
 
-    function loadCommunityByViewport() {
+    function loadCommunityByViewport(reset = false) {
       if (communityUnsub) { communityUnsub(); communityUnsub = null; }
-      clearCommunityMarkers();
-      communityLocations = [];
+      if (reset) { clearCommunityMarkers(); communityLocations = []; }
       const b = map.getBounds().pad(0.15);
       communityUnsub = publicCol()
         .where('lat', '>=', b.getSouth())
@@ -1808,11 +1807,7 @@
           snap.docChanges().forEach(change => {
             const d = change.doc.data();
             const id = d.id ?? Number(change.doc.id);
-            if (change.type === 'removed') {
-              communityLocations = communityLocations.filter(l => l.id !== id);
-              if (communityMarkers[id]) { communityClusterGroup.removeLayer(communityMarkers[id]); delete communityMarkers[id]; }
-              return;
-            }
+            if (change.type === 'removed') return; // Ra ngoài viewport, không phải xóa thật — giữ nguyên marker
             if (d.lng < b.getWest() || d.lng > b.getEast()) return;
             const loc = { ...d, id };
             const idx = communityLocations.findIndex(l => l.id === id);
@@ -2899,7 +2894,7 @@
       clusterGroup.clearLayers();
       leafletMarkers = {};
       loadByViewport();
-      loadCommunityByViewport();
+      loadCommunityByViewport(true);
       initLocationWatch();
     }
 
@@ -3047,7 +3042,7 @@
       if (viewportUnsub) { viewportUnsub(); viewportUnsub = null; }
       updateModeBadge();
       loadGuestData();
-      loadCommunityByViewport();
+      loadCommunityByViewport(true);
       initLocationWatch();
     }
 
