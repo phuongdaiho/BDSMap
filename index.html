@@ -746,6 +746,95 @@
       content: ''; flex: 1; height: 1px; background: #e8e8e8;
     }
 
+    /* ── Quick View button ── */
+    #btn-quickview {
+      background: rgba(255,255,255,0.18); border: none; color: white;
+      border-radius: 8px; padding: 5px 9px; font-size: 0.78rem;
+      cursor: pointer; transition: background 0.2s; white-space: nowrap; flex-shrink: 0;
+    }
+    #btn-quickview:hover { background: rgba(255,255,255,0.35); }
+
+    /* ── Quick View Overlay ── */
+    #quickview-overlay {
+      position: fixed; inset: 0; z-index: 8000;
+      background: #111; display: flex; flex-direction: column;
+    }
+    #quickview-overlay.qv-hidden { display: none; }
+    .qv-header {
+      background: #1a73e8; color: white; display: flex;
+      align-items: center; gap: 8px; padding: 10px 14px; flex-shrink: 0;
+    }
+    .qv-counter {
+      background: rgba(255,255,255,0.25); border-radius: 12px;
+      padding: 2px 10px; font-size: 0.78rem; font-weight: 600; white-space: nowrap;
+    }
+    .qv-header-title { flex: 1; font-size: 0.88rem; font-weight: 600; }
+    .qv-close {
+      background: rgba(255,255,255,0.2); border: none; color: white;
+      border-radius: 8px; width: 32px; height: 32px; font-size: 1rem;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .qv-close:hover { background: rgba(255,255,255,0.4); }
+    .qv-body { flex: 1; overflow-y: auto; background: #f8f9fa; }
+    .qv-img-wrap { background: #000; }
+    .qv-img-wrap > img {
+      width: 100%; max-height: 240px; object-fit: cover; display: block;
+    }
+    .qv-thumbs {
+      display: flex; gap: 6px; padding: 7px; overflow-x: auto; background: #1a1a1a;
+    }
+    .qv-thumb {
+      width: 58px; height: 58px; object-fit: cover; border-radius: 6px;
+      border: 2px solid transparent; cursor: pointer; flex-shrink: 0;
+    }
+    .qv-thumb.active { border-color: #1a73e8; }
+    .qv-card { padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+    .qv-name { font-size: 1.08rem; font-weight: 700; color: #202124; }
+    .qv-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+    .qv-badge-selling { background: #43a047; color: white; border-radius: 4px; padding: 2px 8px; font-size: 0.72rem; font-weight: 600; }
+    .qv-dist { font-size: 0.78rem; color: #1a73e8; font-weight: 600; }
+    .qv-date { font-size: 0.72rem; color: #aaa; }
+    .qv-price { font-size: 1.05rem; font-weight: 700; color: #e65100; }
+    .qv-area-name { font-size: 0.82rem; color: #555; }
+    .qv-details {
+      display: flex; flex-wrap: wrap; gap: 6px 14px;
+      background: #e8f0fe; border-radius: 8px; padding: 8px 10px;
+    }
+    .qv-details span { font-size: 0.8rem; color: #333; }
+    .qv-row { font-size: 0.82rem; color: #444; }
+    .qv-desc {
+      font-size: 0.85rem; color: #444; background: white;
+      border-radius: 8px; padding: 9px 11px; border-left: 3px solid #1a73e8;
+    }
+    .qv-note { font-size: 0.78rem; color: #777; font-style: italic; }
+    .qv-phone { display: flex; align-items: center; gap: 10px; }
+    .qv-phone-num { font-size: 0.9rem; font-weight: 600; color: #202124; }
+    .qv-call-btn {
+      background: #43a047; color: white; text-decoration: none;
+      border-radius: 8px; padding: 6px 16px; font-size: 0.85rem; font-weight: 600;
+    }
+    .qv-link a { color: #1a73e8; font-size: 0.82rem; text-decoration: none; }
+    .qv-owner { font-size: 0.7rem; color: #bbb; }
+    .qv-empty {
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 12px; height: 100%;
+      color: #999; font-size: 0.9rem; padding: 40px 24px; text-align: center;
+    }
+    .qv-footer {
+      background: white; border-top: 1px solid #e0e0e0;
+      display: flex; gap: 8px; padding: 10px 14px; flex-shrink: 0;
+    }
+    .qv-btn-nav {
+      flex: 1; background: #e8f0fe; border: 1px solid #1a73e8; color: #1a73e8;
+      border-radius: 8px; padding: 10px 6px; font-size: 0.88rem; font-weight: 600; cursor: pointer;
+    }
+    .qv-btn-nav:disabled { background: #f1f3f4; border-color: #ddd; color: #bbb; cursor: not-allowed; }
+    .qv-btn-map {
+      flex: 1.2; background: #1a73e8; border: none; color: white;
+      border-radius: 8px; padding: 10px 6px; font-size: 0.88rem; font-weight: 600; cursor: pointer;
+    }
+    .qv-btn-map:hover { background: #1557b0; }
+
     /* ── Mode badge (header) ── */
     #mode-badge {
       background: rgba(255,255,255,0.2);
@@ -807,6 +896,7 @@
       <div class="mode-dot guest" id="mode-dot"></div>
       <span id="mode-label">Khách</span>
     </button>
+    <button id="btn-quickview" onclick="openQuickView()" title="Xem nhanh BĐS đang bán trong bán kính 5 km">🏠 Xem bán</button>
     <button id="toggle-sidebar" onclick="toggleSidebar()">
       📋 BĐS cá nhân <span id="sidebar-count">0</span>
     </button>
@@ -1062,6 +1152,21 @@
     </div>
   </div>
 
+  <!-- Quick View overlay -->
+  <div id="quickview-overlay" class="qv-hidden">
+    <div class="qv-header">
+      <span class="qv-counter" id="qv-counter">0 / 0</span>
+      <span class="qv-header-title">🏠 BĐS đang bán gần bạn</span>
+      <button class="qv-close" onclick="closeQuickView()">✕</button>
+    </div>
+    <div class="qv-body" id="qv-body"></div>
+    <div class="qv-footer">
+      <button class="qv-btn-nav" id="qv-prev" onclick="prevQuick()">◀ Trước</button>
+      <button class="qv-btn-map" onclick="quickViewGoToMap()">📍 Trên bản đồ</button>
+      <button class="qv-btn-nav" id="qv-next" onclick="nextQuick()">Sau ▶</button>
+    </div>
+  </div>
+
   <script src="./lib/leaflet.js"></script>
   <script src="./lib/leaflet.markercluster.min.js"></script>
   <script>
@@ -1087,6 +1192,9 @@
     let locations = [];
     let searchMarker = null;
     let myLocationMarker = null;
+    let quickViewItems = [];
+    let quickViewIdx   = 0;
+    let quickViewUserPos = null;
     let leafletMarkers = {};   // id → L.marker
     let pendingLatLng = null;   // tọa độ đang chờ lưu
     let pendingTextData = null; // dữ liệu đã parse từ text, chờ click map
@@ -3128,6 +3236,138 @@
         closeAuthModal();
       }
     });
+
+    // ── Quick View BĐS đang bán ──
+
+    function distKm(lat1, lng1, lat2, lng2) {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLng = (lng2 - lng1) * Math.PI / 180;
+      const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2)**2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    function openQuickView() {
+      const doFilter = (uLat, uLng) => {
+        quickViewUserPos = { lat: uLat, lng: uLng };
+        quickViewItems = communityLocations
+          .filter(loc => !loc.status || loc.status === 'Đang bán')
+          .map(loc => ({ ...loc, _dist: distKm(uLat, uLng, loc.lat, loc.lng) }))
+          .filter(loc => loc._dist <= 5)
+          .sort((a, b) => a._dist - b._dist);
+        quickViewIdx = 0;
+        document.getElementById('quickview-overlay').classList.remove('qv-hidden');
+        if (!quickViewItems.length) {
+          document.getElementById('qv-body').innerHTML =
+            '<div class="qv-empty"><div style="font-size:2.5rem">🏘️</div><div>Không tìm thấy BĐS đang bán<br>trong bán kính 5 km.</div><div style="font-size:0.78rem;color:#bbb">Di chuyển bản đồ đến khu vực có BĐS<br>rồi thử lại.</div></div>';
+          document.getElementById('qv-counter').textContent = '0 / 0';
+          document.getElementById('qv-prev').disabled = true;
+          document.getElementById('qv-next').disabled = true;
+          return;
+        }
+        showQuickCard(0);
+      };
+
+      if (myLocationMarker) {
+        const { lat, lng } = myLocationMarker.getLatLng();
+        doFilter(lat, lng);
+      } else {
+        navigator.geolocation.getCurrentPosition(
+          ({ coords }) => doFilter(coords.latitude, coords.longitude),
+          () => showHint('Không lấy được vị trí GPS. Vui lòng cho phép truy cập vị trí.')
+        );
+      }
+    }
+
+    function showQuickCard(idx) {
+      const loc = quickViewItems[idx];
+      const total = quickViewItems.length;
+      document.getElementById('qv-counter').textContent = `${idx + 1} / ${total}`;
+      document.getElementById('qv-prev').disabled = idx === 0;
+      document.getElementById('qv-next').disabled = idx === total - 1;
+
+      const fmtDate = d => { if (!d) return ''; const [y,m,dd] = d.split('-'); return `${dd}/${m}/${y}`; };
+      const dist = loc._dist != null ? loc._dist.toFixed(1) : null;
+
+      const imgs = loc.images?.length ? loc.images : (loc.image ? [loc.image] : []);
+      let imgHtml = '';
+      if (imgs.length) {
+        const thumbs = imgs.length > 1
+          ? `<div class="qv-thumbs">${imgs.map((u, i) =>
+              `<img src="${esc(u)}" class="qv-thumb${i === 0 ? ' active' : ''}"
+               onclick="var mi=document.getElementById('qv-main-img');mi.src='${esc(u)}';document.querySelectorAll('.qv-thumb').forEach(t=>t.classList.remove('active'));this.classList.add('active')"
+               onerror="this.parentNode.removeChild(this)" />`).join('')}</div>`
+          : '';
+        imgHtml = `<div class="qv-img-wrap">
+          <img id="qv-main-img" src="${esc(imgs[0])}" alt="" onerror="this.parentNode.style.display='none'" />
+          ${thumbs}
+        </div>`;
+      }
+
+      const details = [
+        loc.acreage   ? `📐 ${esc(loc.acreage)} m²`      : '',
+        loc.width     ? `↔ ${esc(loc.width)} m`           : '',
+        loc.length    ? `↕ ${esc(loc.length)} m`          : '',
+        loc.direction ? `🧭 ${esc(loc.direction)}`         : '',
+        loc.legal     ? `📜 ${esc(loc.legal)}`             : '',
+        loc.roadWidth ? `🛣️ Lộ ${esc(loc.roadWidth)}`     : '',
+      ].filter(Boolean).map(s => `<span>${s}</span>`).join('');
+
+      document.getElementById('qv-body').innerHTML = `
+        ${imgHtml}
+        <div class="qv-card">
+          <div class="qv-name">${esc(loc.name)}</div>
+          <div class="qv-meta">
+            <span class="qv-badge-selling">Đang bán</span>
+            ${dist ? `<span class="qv-dist">📍 ${dist} km</span>` : ''}
+            ${loc.updatedDate ? `<span class="qv-date">Cập nhật: ${fmtDate(loc.updatedDate)}</span>` : ''}
+          </div>
+          ${loc.price      ? `<div class="qv-price">💰 ${esc(loc.price)}</div>` : ''}
+          ${loc.area       ? `<div class="qv-area-name">📌 ${esc(loc.area)}</div>` : ''}
+          ${details        ? `<div class="qv-details">${details}</div>` : ''}
+          ${loc.structure  ? `<div class="qv-row">🏗️ ${esc(loc.structure)}</div>` : ''}
+          ${loc.usage      ? `<div class="qv-row">🏠 ${esc(loc.usage)}</div>` : ''}
+          ${loc.interior   ? `<div class="qv-row">🛋️ ${esc(loc.interior)}</div>` : ''}
+          ${loc.buildArea  ? `<div class="qv-row">🏢 DT xây dựng: ${esc(loc.buildArea)} m²</div>` : ''}
+          ${loc.floorArea  ? `<div class="qv-row">📊 DT sàn: ${esc(loc.floorArea)} m²</div>` : ''}
+          ${loc.desc       ? `<div class="qv-desc">${esc(loc.desc)}</div>` : ''}
+          ${loc.note       ? `<div class="qv-note">${esc(loc.note)}</div>` : ''}
+          ${loc.phone      ? `<div class="qv-phone"><span class="qv-phone-num">📞 ${esc(loc.phone)}</span><a href="tel:${esc(loc.phone)}" class="qv-call-btn">Gọi ngay</a></div>` : ''}
+          ${loc.link       ? `<div class="qv-link"><a href="${esc(loc.link)}" target="_blank" rel="noopener">🔗 Xem thêm</a></div>` : ''}
+          <div class="qv-owner">🌍 ${esc((loc.ownerEmail || '').split('@')[0])}</div>
+        </div>`;
+    }
+
+    function closeQuickView() {
+      document.getElementById('quickview-overlay').classList.add('qv-hidden');
+    }
+
+    function prevQuick() {
+      if (quickViewIdx > 0) showQuickCard(--quickViewIdx);
+    }
+
+    function nextQuick() {
+      if (quickViewIdx < quickViewItems.length - 1) showQuickCard(++quickViewIdx);
+    }
+
+    function quickViewGoToMap() {
+      const loc = quickViewItems[quickViewIdx];
+      if (!loc) return;
+      closeQuickView();
+      map.flyTo([loc.lat, loc.lng], 17, { duration: 0.8 });
+      setTimeout(() => { if (communityMarkers[loc.id]) communityMarkers[loc.id].openPopup(); }, 900);
+    }
+
+    // Swipe trái/phải trên mobile
+    (function () {
+      let startX = 0;
+      const el = document.getElementById('quickview-overlay');
+      el.addEventListener('touchstart', e => { startX = e.touches[0].clientX; }, { passive: true });
+      el.addEventListener('touchend', e => {
+        const dx = e.changedTouches[0].clientX - startX;
+        if (Math.abs(dx) > 55) dx < 0 ? nextQuick() : prevQuick();
+      });
+    })();
   </script>
 
   <!-- Đăng ký Service Worker (PWA offline) -->
