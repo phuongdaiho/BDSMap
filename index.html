@@ -160,6 +160,10 @@
       bottom: 56px;
       left: 10px;
       z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: center;
     }
     #btn-layer-toggle {
       width: 36px;
@@ -926,7 +930,6 @@
     <button onclick="searchLocation()">Tìm kiếm</button>
     <div class="sep"></div>
     <button class="gray" onclick="goToMyLocation()">📍 Vị trí tôi</button>
-    <button id="btn-toggle-community" class="gray" onclick="toggleCommunityMarkers()" title="Ẩn/hiện địa điểm cộng đồng">🌍 Cộng đồng</button>
     <div class="xml-menu-wrap" id="xml-menu-wrap">
       <button class="gray" onclick="toggleXmlMenu()">📁 XML ▾</button>
       <div class="xml-dropdown" id="xml-dropdown">
@@ -943,6 +946,7 @@
     <div id="map">
       <div id="map-hint">Click vào bản đồ để thêm địa điểm</div>
       <div id="layer-control">
+        <button id="btn-toggle-community" class="measure-btn active" onclick="toggleCommunityMarkers()" title="Ẩn địa điểm cộng đồng">🌍</button>
         <button id="btn-layer-toggle" onclick="toggleLayerPicker()" title="Chế độ xem bản đồ">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
             <path d="M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27zM12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16z"/>
@@ -1578,7 +1582,7 @@
     function toggleCommunityMarkers() {
       communityVisible = !communityVisible;
       const btn = document.getElementById('btn-toggle-community');
-      btn.classList.toggle('off', !communityVisible);
+      btn.classList.toggle('active', communityVisible);
       btn.title = communityVisible ? 'Ẩn địa điểm cộng đồng' : 'Hiện địa điểm cộng đồng';
       if (!communityVisible) {
         Object.values(communityMarkers).forEach(m => communityClusterGroup.removeLayer(m));
