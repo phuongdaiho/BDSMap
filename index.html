@@ -1588,22 +1588,16 @@
     }
 
     async function incrementViews(id) {
-      if (recentlyViewed.has('p_' + id)) return;
-      recentlyViewed.add('p_' + id);
-      setTimeout(() => recentlyViewed.delete('p_' + id), 5000);
-      const idx = locations.findIndex(l => l.id === id);
-      if (idx < 0) return;
-      locations[idx].views = (locations[idx].views || 0) + 1;
-      if (leafletMarkers[id]) leafletMarkers[id].setPopupContent(makePopupHtml(locations[idx]));
-      if (appMode === 'guest') { guestPersist(); return; }
-      try { await userCol().doc(String(id)).update({ views: locations[idx].views }); } catch(e) {}
+      // Personal locations are always owned by the current user — never count own views
     }
 
     async function incrementCommunityViews(id) {
       if (recentlyViewed.has('c_' + id)) return;
+      const locIdx = communityLocations.findIndex(l => l.id === id);
+      // Skip if viewer is the owner
+      if (locIdx >= 0 && currentUser?.uid && communityLocations[locIdx].ownerUid === currentUser.uid) return;
       recentlyViewed.add('c_' + id);
       setTimeout(() => recentlyViewed.delete('c_' + id), 5000);
-      const locIdx = communityLocations.findIndex(l => l.id === id);
       if (locIdx >= 0) communityLocations[locIdx].views = (communityLocations[locIdx].views || 0) + 1;
       const qIdx = quickViewItems.findIndex(l => l.id === id);
       if (qIdx >= 0) quickViewItems[qIdx].views = (quickViewItems[qIdx].views || 0) + 1;
