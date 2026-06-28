@@ -762,7 +762,8 @@
     #quickview-overlay.qv-hidden { display: none; }
     .qv-header {
       background: #1a73e8; color: white; display: flex;
-      align-items: center; gap: 8px; padding: 10px 14px; flex-shrink: 0;
+      align-items: center; gap: 8px;
+      padding: calc(10px + env(safe-area-inset-top)) 14px 10px; flex-shrink: 0;
     }
     .qv-counter {
       background: rgba(255,255,255,0.25); border-radius: 12px;
@@ -822,7 +823,8 @@
     }
     .qv-footer {
       background: white; border-top: 1px solid #e0e0e0;
-      display: flex; gap: 8px; padding: 10px 14px; flex-shrink: 0;
+      display: flex; gap: 8px;
+      padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); flex-shrink: 0;
     }
     .qv-btn-nav {
       flex: 1; background: #e8f0fe; border: 1px solid #1a73e8; color: #1a73e8;
