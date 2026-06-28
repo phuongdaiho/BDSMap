@@ -1799,7 +1799,7 @@
           <div class="loc-meta-row">
             <span class="loc-coords">${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}</span>
             ${loc.status ? `<span class="loc-status-badge ${loc.status === 'Đã bán' ? 'sold' : 'selling'}">${esc(loc.status)}</span>` : ''}
-            ${loc.isPublic ? '<span class="loc-public-badge">🌍 Công khai</span>' : ''}
+            ${loc.isPublic ? '<span class="loc-public-badge" title="Công khai">🌍</span>' : ''}
           </div>
           ${loc.updatedDate ? `<div class="loc-updated">Cập nhật: ${loc.updatedDate.split('-').reverse().join('/')}</div>` : ''}
           ${loc.views ? `<div class="loc-views">👁 Đã xem: ${loc.views} lần</div>` : ''}
