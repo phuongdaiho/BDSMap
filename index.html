@@ -1662,7 +1662,6 @@
       sidebarTab = tab;
       document.getElementById('tab-personal').classList.toggle('active', tab === 'personal');
       document.getElementById('tab-community').classList.toggle('active', tab === 'community');
-      document.getElementById('group-by').style.display = tab === 'personal' ? '' : 'none';
       renderSidebar();
     }
 
@@ -1704,8 +1703,45 @@
       if (sidebarTab === 'community') {
         if (!communityLocations.length) {
           list.innerHTML = '<div class="sidebar-empty">Không có địa điểm cộng đồng trong khu vực này.</div>';
+          return;
+        }
+        list.innerHTML = '';
+        if (groupByField) {
+          const getKey = loc => {
+            switch (groupByField) {
+              case 'area':      return loc.area      || '— Chưa có khu vực —';
+              case 'direction': return loc.direction || '— Chưa có hướng —';
+              case 'usage':     return loc.usage     || '— Chưa phân loại —';
+              case 'structure': return loc.structure || '— Chưa có kết cấu —';
+              case 'color':     return COLOR_NAMES[loc.color] || loc.color || '— Khác —';
+              case 'price':     return loc.price     || '— Chưa có giá —';
+              default:          return '— Khác —';
+            }
+          };
+          const groups = {}, order = [];
+          communityLocations.forEach(loc => {
+            const key = getKey(loc);
+            if (!groups[key]) { groups[key] = []; order.push(key); }
+            groups[key].push(loc);
+          });
+          order.forEach(groupName => {
+            const isCollapsed = collapsedGroups.has(groupName);
+            const header = document.createElement('div');
+            header.className = 'group-header' + (isCollapsed ? ' collapsed' : '');
+            header.innerHTML = `<span><i class="group-chevron">▼</i>${esc(groupName)}</span><span class="group-count">${groups[groupName].length}</span>`;
+            const body = document.createElement('div');
+            if (isCollapsed) body.style.display = 'none';
+            groups[groupName].forEach(loc => body.appendChild(createCommunityLocItem(loc)));
+            header.addEventListener('click', () => {
+              const nowCollapsed = !collapsedGroups.has(groupName);
+              nowCollapsed ? collapsedGroups.add(groupName) : collapsedGroups.delete(groupName);
+              header.classList.toggle('collapsed', nowCollapsed);
+              body.style.display = nowCollapsed ? 'none' : '';
+            });
+            list.appendChild(header);
+            list.appendChild(body);
+          });
         } else {
-          list.innerHTML = '';
           communityLocations.forEach(loc => list.appendChild(createCommunityLocItem(loc)));
         }
         return;
