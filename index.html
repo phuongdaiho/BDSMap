@@ -798,7 +798,7 @@
       <span id="mode-label">Khách</span>
     </button>
     <button id="toggle-sidebar" onclick="toggleSidebar()">
-      📋 Địa điểm đã lưu <span id="sidebar-count">0</span>
+      📋 BĐS cá nhân <span id="sidebar-count">0</span>
     </button>
   </header>
 
@@ -2876,16 +2876,11 @@
     function loadByViewport() {
       if (appMode !== 'user' || !currentUser) return;
       if (viewportUnsub) { viewportUnsub(); viewportUnsub = null; }
-      const b = map.getBounds().pad(0.15);
 
       viewportUnsub = userCol()
-        .where('lat', '>=', b.getSouth())
-        .where('lat', '<=', b.getNorth())
         .onSnapshot(snap => {
           let changed = false;
           snap.docChanges().forEach(change => {
-            const d = change.doc.data();
-            if (change.type !== 'removed' && (d.lng < b.getWest() || d.lng > b.getEast())) return;
             applyDocChange(change);
             changed = true;
           });
@@ -2908,12 +2903,7 @@
       initLocationWatch();
     }
 
-    let vpTimer;
     map.on('moveend', () => {
-      if (appMode === 'user') {
-        clearTimeout(vpTimer);
-        vpTimer = setTimeout(loadByViewport, 800);
-      }
       clearTimeout(communityVpTimer);
       communityVpTimer = setTimeout(loadCommunityByViewport, 800);
     });
