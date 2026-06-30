@@ -21,6 +21,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -2377,16 +2378,11 @@
     }
 
     async function uploadImage(blob) {
-      const buf = await blob.arrayBuffer();
-      const res = await fetch(SHARE_WORKER_URL + '/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': blob.type || 'image/jpeg' },
-        body: buf,
-      });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const data = await res.json();
-      if (!data.url) throw new Error(data.error || 'Phản hồi không hợp lệ');
-      return data.url;
+      const storage = firebase.storage();
+      const ext     = blob.type === 'image/png' ? 'png' : 'jpg';
+      const ref     = storage.ref(`images/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`);
+      const snap    = await ref.put(blob, { contentType: blob.type || 'image/jpeg' });
+      return await snap.ref.getDownloadURL();
     }
 
     // ── Multi-image slot system ──
@@ -2442,7 +2438,7 @@
           try {
             setSlotStatus(statusEl, 'loading', `⏳ Đang tải lên (${fmtSize(compressed.size)})...`);
             imgUrl = await uploadImage(compressed);
-            setSlotStatus(statusEl, 'success', `✅ ${sizeLabel} · telegra.ph`);
+            setSlotStatus(statusEl, 'success', `✅ ${sizeLabel} · Firebase`);
           } catch {
             setSlotStatus(statusEl, 'loading', '⚠️ Không kết nối được, đang lưu offline...');
             imgUrl = await blobToBase64(compressed);
