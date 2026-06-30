@@ -2377,13 +2377,16 @@
     }
 
     async function uploadImage(blob) {
-      const form = new FormData();
-      form.append('file', blob, 'image.jpg');
-      const res = await fetch('https://telegra.ph/upload', { method: 'POST', body: form });
+      const buf = await blob.arrayBuffer();
+      const res = await fetch(SHARE_WORKER_URL + '/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': blob.type || 'image/jpeg' },
+        body: buf,
+      });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
-      if (!Array.isArray(data) || !data[0]?.src) throw new Error('Phản hồi không hợp lệ');
-      return 'https://telegra.ph' + data[0].src;
+      if (!data.url) throw new Error(data.error || 'Phản hồi không hợp lệ');
+      return data.url;
     }
 
     // ── Multi-image slot system ──

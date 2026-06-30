@@ -9,9 +9,46 @@ const API_KEY       = 'AIzaSyBuuxnR8w8Sd2VSuMfU8Sx7S3aoYLWneD8';
 const APP_URL       = 'https://phuongdaiho.github.io/BDSMap/';
 const DEFAULT_IMAGE = 'https://phuongdaiho.github.io/BDSMap/icons/icon-512.png';
 
+const CORS = {
+  'Access-Control-Allow-Origin':  '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
 export default {
   async fetch(request) {
     const url = new URL(request.url);
+
+    // ── Preflight ──
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: CORS });
+    }
+
+    // ── /upload — proxy ảnh lên telegra.ph (tránh CORS) ──
+    if (url.pathname === '/upload') {
+      if (request.method !== 'POST') {
+        return new Response('Method Not Allowed', { status: 405, headers: CORS });
+      }
+      try {
+        const body = await request.arrayBuffer();
+        const ct   = request.headers.get('Content-Type') || 'image/jpeg';
+        const form = new FormData();
+        form.append('file', new Blob([body], { type: ct }), 'image.jpg');
+        const res  = await fetch('https://telegra.ph/upload', { method: 'POST', body: form });
+        const data = await res.json();
+        if (!Array.isArray(data) || !data[0]?.src) throw new Error('bad response');
+        return new Response(
+          JSON.stringify({ url: 'https://telegra.ph' + data[0].src }),
+          { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } }
+        );
+      } catch (e) {
+        return new Response(
+          JSON.stringify({ error: e.message }),
+          { status: 502, headers: { 'Content-Type': 'application/json', ...CORS } }
+        );
+      }
+    }
+
     const id  = url.searchParams.get('id');
 
     if (!id) return Response.redirect(APP_URL, 302);

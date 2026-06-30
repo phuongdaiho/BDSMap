@@ -218,8 +218,9 @@ CSS `.tab-count`: nền `#bdbdbd` (inactive), `#1a73e8` (active tab)
 
 **Filter group-by hoạt động trên cả 2 tab**:
 - Dropdown "☰ Danh sách" nhóm theo: `area`, `direction`, `usage`, `structure`, `color`, `price`
-- Tab Cá nhân dùng `createLocItem()` (có drag-drop)
-- Tab Cộng đồng dùng `createCommunityLocItem()` (không drag-drop; Sửa/Xóa chỉ hiện nếu `ownerUid === currentUser.uid`)
+- Tab Cá nhân dùng `createLocItem()` (có drag-drop): nút **✏️** (Chỉnh sửa), **❌** (Xóa địa điểm), **↗️** (Chia sẻ — chỉ khi `loc.isPublic`)
+- Tab Cộng đồng dùng `createCommunityLocItem()` (không drag-drop): nút **↗️** luôn hiện; ✏️/❌ chỉ hiện nếu `ownerUid === currentUser.uid`
+- Tất cả nút sidebar đều có `title` tooltip khi hover
 
 **`flyToCommunity(id)`**: bay đến community marker, mở popup sau 850ms.
 
@@ -273,7 +274,11 @@ Dropdown "☰ Danh sách" nhóm theo: `area`, `direction`, `usage`, `structure`,
 - Số điện thoại + nút **"Gọi"** (`href="tel:"`)
 - Ngày cập nhật (format `dd/mm/yyyy`)
 - **"👁 Đã xem: N lần"** — hiện khi `loc.views > 0`
-- Nút Sửa, Xóa (chỉ owner), **🚶 Street View**, **↗️ Chia sẻ** (tất cả marker)
+- Nút hành động (thứ tự trái → phải): **✏️** (Sửa) → **❌** (Xóa) → **↗️** (Chia sẻ) → **🚶** (Street View)
+  - ✏️ / ❌: chỉ hiện cho owner (`!isCommunity || currentUser?.uid === loc.ownerUid`)
+  - ↗️: hiện khi `isCommunity || loc.isPublic` (personal non-public ẩn)
+  - 🚶 / ↗️: chỉ icon, không text — có `title` tooltip khi hover
+- Tất cả nút đều có tooltip: `title="Chỉnh sửa"`, `"Xóa địa điểm"`, `"Chia sẻ địa điểm"`, `"Xem Street View"`
 - Layout 2 cột: `row2(l1,v1,u1, l2,v2,u2)`
 - Tọa độ: 5 chữ số thập phân
 
@@ -318,6 +323,8 @@ allow update: if request.auth != null && request.auth.uid == resource.data.owner
 ### 19. Quick View "🏠 Xem nhanh"
 
 Nút **"🏠 Xem nhanh"** trên header.
+
+**Header overlay:** `🏠 BĐS đang bán gần bạn (bán kính 5 km)`
 
 **Mục đích:** xem nhanh các BĐS cộng đồng `Đang bán` trong bán kính **5 km** quanh vị trí GPS của user, **không thuộc chính user**.
 
@@ -388,12 +395,18 @@ const FIREBASE_PROJECT = 'bdsmap-3b584';
 - **Lọc ảnh base64**: chỉ dùng URL `http/https`; `data:` URLs không hợp lệ cho Facebook → fallback `icon-512.png`
 - `og:image` fallback: `https://phuongdaiho.github.io/BDSMap/icons/icon-512.png` (512×512 PNG)
 
-**Nút Chia sẻ:**
-- Popup marker: `↗️ Chia sẻ` — hiện cho **tất cả marker** (không phân biệt community/personal)
-- Quick View card: nút `↗️ Chia sẻ` cuối card (`.qv-share-btn`)
+**Nút Chia sẻ (↗️) — vị trí và điều kiện hiển thị:**
+
+| Vị trí | Điều kiện hiện |
+|---|---|
+| Popup marker | `isCommunity \|\| loc.isPublic` |
+| Sidebar — Tab Cá nhân | `loc.isPublic === true` |
+| Sidebar — Tab Cộng đồng | Luôn hiện (tất cả user kể cả Guest) |
+| Quick View card | Luôn hiện (`.qv-share-btn`) |
 
 **Lưu ý:**
-- Share link chỉ hoạt động đầy đủ cho community locations (`public_locations`) — personal locations không có trong Firestore công khai nên Worker sẽ báo "Không tìm thấy BĐS"
+- Personal marker chưa public → ẩn nút Share ở mọi nơi (Worker sẽ trả lỗi "Không tìm thấy BĐS" vì không có trong `public_locations`)
+- Community markers luôn có trong `public_locations` → luôn share được
 - Sau khi update Worker, cần "Thu thập lại" trong Facebook Sharing Debugger để xóa cache
 
 ### 22. Export toàn bộ dữ liệu (export.html)
@@ -673,5 +686,6 @@ Sửa Mobile/index.html (và/hoặc sw.js nếu cần bust cache)
 - **Firestore offline:** SDK tự cache local, sync lại khi có mạng
 - **telegra.ph:** ảnh công khai, vĩnh viễn
 - **iOS PWA:** không có push notification, không background sync
+- **XML dropdown z-index:** `.search-bar` có `position: relative; z-index: 3100` — tạo stacking context cao hơn sidebar (`z-index: 2000`) để dropdown XML (`z-index: 3000`) đè lên trên sidebar khi mở. Nếu thiếu `position` thì stacking context không được tạo, dropdown sẽ bị sidebar che dù z-index cao hơn
 - **Nominatim rate limit:** 1 req/s — debounce 400ms (search) / 1100ms (geocode)
 - **export.html — Google account:** tài khoản tạo bằng Google Sign-In không có password → phải đặt password trong Firebase Console (Authentication → Users → Reset password) trước khi dùng export.html
