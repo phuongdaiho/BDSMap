@@ -86,7 +86,8 @@
       align-items: center;
       gap: 7px;
       box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-      z-index: 999;
+      position: relative;
+      z-index: 3100;
       flex-shrink: 0;
       flex-wrap: wrap;
     }
@@ -146,7 +147,7 @@
       display: none; position: absolute; top: calc(100% + 4px); left: 0;
       background: white; border: 1px solid #e0e0e0; border-radius: 10px;
       box-shadow: 0 4px 16px rgba(0,0,0,0.18); min-width: 140px;
-      flex-direction: column; z-index: 2000; overflow: hidden;
+      flex-direction: column; z-index: 3000; overflow: hidden;
     }
     .xml-dropdown.open { display: flex; }
     .xml-dropdown button, .xml-dropdown label {
@@ -457,6 +458,7 @@
     }
     .loc-actions .btn-edit:hover { background: #e8f0fe; border-color: #1a73e8; color: #1a73e8; }
     .loc-actions .btn-del:hover { background: #fce8e6; border-color: #d93025; color: #d93025; }
+    .loc-actions .btn-share:hover { background: #fff3e0; border-color: #f57c00; color: #e65100; }
 
     .drag-handle {
       color: #bbb;
@@ -1208,7 +1210,7 @@
   <div id="quickview-overlay" class="qv-hidden">
     <div class="qv-header">
       <span class="qv-counter" id="qv-counter">0 / 0</span>
-      <span class="qv-header-title">🏠 BĐS đang bán gần bạn</span>
+      <span class="qv-header-title">🏠 BĐS đang bán gần bạn (bán kính 5 km)</span>
       <button class="qv-close" onclick="closeQuickView()">✕</button>
     </div>
     <div class="qv-body" id="qv-body"></div>
@@ -1734,10 +1736,10 @@
         ${statusBadge}
         ${desc}${note}${link}${phone}${coords}${updatedDate}${viewsBadge}${ownerBadge}${landSection}${assetSection}
         <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
-          ${(!isCommunity || currentUser?.uid === loc.ownerUid) ? `<button onclick="editLocation(${loc.id})" style="border:1px solid #1a73e8;background:#e8f0fe;color:#1a73e8;border-radius:6px;padding:3px 10px;font-size:0.78rem;cursor:pointer">Sửa</button>
-          <button onclick="deleteLocation(${loc.id})" style="border:1px solid #d93025;background:#fce8e6;color:#d93025;border-radius:6px;padding:3px 10px;font-size:0.78rem;cursor:pointer">Xóa</button>` : ''}
-          <a href="${svUrl}" target="_blank" rel="noopener" style="border:1px solid #43a047;background:#e8f5e9;color:#2e7d32;border-radius:6px;padding:3px 10px;font-size:0.78rem;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:3px">🚶 Street View</a>
-          ${isCommunity ? `<button onclick="shareLocation('${loc.id}','${esc(loc.name)}')" style="border:1px solid #f57c00;background:#fff3e0;color:#e65100;border-radius:6px;padding:3px 10px;font-size:0.78rem;cursor:pointer">📤 Chia sẻ</button>` : ''}
+          ${(!isCommunity || currentUser?.uid === loc.ownerUid) ? `<button onclick="editLocation(${loc.id})" title="Chỉnh sửa" style="border:1px solid #1a73e8;background:#e8f0fe;color:#1a73e8;border-radius:6px;padding:3px 10px;font-size:0.78rem;cursor:pointer">✏️</button>
+          <button onclick="deleteLocation(${loc.id})" title="Xóa địa điểm" style="border:1px solid #d93025;background:#fce8e6;color:#d93025;border-radius:6px;padding:3px 10px;font-size:0.78rem;cursor:pointer">❌</button>` : ''}
+          ${(isCommunity || loc.isPublic) ? `<button onclick="shareLocation('${loc.id}','${esc(loc.name)}')" title="Chia sẻ địa điểm" style="border:1px solid #f57c00;background:#fff3e0;color:#e65100;border-radius:6px;padding:3px 10px;font-size:0.78rem;cursor:pointer">↗️</button>` : ''}
+          <a href="${svUrl}" target="_blank" rel="noopener" title="Xem Street View" style="border:1px solid #43a047;background:#e8f5e9;color:#2e7d32;border-radius:6px;padding:3px 10px;font-size:0.78rem;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center">🚶</a>
         </div>
       </div>`;
     }
@@ -1817,10 +1819,12 @@
           ${loc.views ? `<div class="loc-views">👁 Đã xem: ${loc.views} lần</div>` : ''}
         </div>
         <div class="loc-actions">
-          <button class="btn-edit">Sửa</button>
-          <button class="btn-del">Xóa</button>
+          ${loc.isPublic ? `<button class="btn-share" title="Chia sẻ địa điểm">↗️</button>` : ''}
+          <button class="btn-edit" title="Chỉnh sửa">✏️</button>
+          <button class="btn-del" title="Xóa địa điểm">❌</button>
         </div>`;
 
+      item.querySelector('.btn-share')?.addEventListener('click', e => { e.stopPropagation(); shareLocation(String(loc.id), loc.name); });
       item.querySelector('.btn-edit').addEventListener('click', e => { e.stopPropagation(); editLocation(loc.id); });
       item.querySelector('.btn-del').addEventListener('click', e => { e.stopPropagation(); deleteLocation(loc.id); });
       item.addEventListener('click', () => { if (!didDrag) flyTo(loc.id); });
@@ -1911,7 +1915,11 @@
           ${loc.updatedDate ? `<div class="loc-updated">Cập nhật: ${loc.updatedDate.split('-').reverse().join('/')}</div>` : ''}
           ${loc.views ? `<div class="loc-views">👁 Đã xem: ${loc.views} lần</div>` : ''}
         </div>
-        ${isOwn ? `<div class="loc-actions"><button class="btn-edit">Sửa</button><button class="btn-del">Xóa</button></div>` : ''}`;
+        <div class="loc-actions">
+          <button class="btn-share" title="Chia sẻ địa điểm">↗️</button>
+          ${isOwn ? `<button class="btn-edit" title="Chỉnh sửa">✏️</button><button class="btn-del" title="Xóa địa điểm">❌</button>` : ''}
+        </div>`;
+      item.querySelector('.btn-share').addEventListener('click', e => { e.stopPropagation(); shareLocation(String(loc.id), loc.name); });
       if (isOwn) {
         item.querySelector('.btn-edit').addEventListener('click', e => { e.stopPropagation(); editLocation(loc.id); });
         item.querySelector('.btn-del').addEventListener('click', e => { e.stopPropagation(); deleteLocation(loc.id); });
@@ -3425,7 +3433,7 @@
           ${loc.link       ? `<div class="qv-link"><a href="${esc(loc.link)}" target="_blank" rel="noopener">🔗 Xem thêm</a></div>` : ''}
           ${loc.views      ? `<div class="qv-row" style="color:#bbb;font-size:0.75rem">👁 Đã xem: ${loc.views} lần</div>` : ''}
           <div class="qv-owner">🌍 ${esc((loc.ownerEmail || '').split('@')[0])}</div>
-          <button onclick="shareLocation('${loc.id}','${esc(loc.name)}')" class="qv-share-btn">📤 Chia sẻ BĐS này</button>
+          <button onclick="shareLocation('${loc.id}','${esc(loc.name)}')" class="qv-share-btn">↗️ Chia sẻ</button>
         </div>`;
     }
 

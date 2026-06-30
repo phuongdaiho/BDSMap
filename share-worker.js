@@ -36,8 +36,11 @@ export default {
     const title = loc?.name  || 'BĐS đang bán — BĐS Map';
     const parts = loc ? [loc.price, loc.acreage ? loc.acreage + ' m²' : '', loc.area, loc.status || 'Đang bán'] : [];
     const desc  = parts.filter(Boolean).join(' · ') || 'Xem thông tin BĐS đang bán gần bạn trên BĐS Map';
-    const image = (loc?.images?.[0]) || loc?.image || DEFAULT_IMAGE;
-    const card  = image === DEFAULT_IMAGE ? 'summary' : 'summary_large_image';
+    const httpImages = (loc?.images || []).filter(i => i && i.startsWith('http'));
+    const httpImage  = httpImages[0] || (loc?.image?.startsWith('http') ? loc.image : null);
+    const image = httpImage || DEFAULT_IMAGE;
+    const isDefault = image === DEFAULT_IMAGE;
+    const card  = isDefault ? 'summary' : 'summary_large_image';
 
     // IMPORTANT: NO <meta http-equiv="refresh"> — bots would follow it to GitHub Pages
     // Use JS-only redirect so real users get sent to the app but bots stay on this page
@@ -56,7 +59,7 @@ export default {
   <meta property="og:image"        content="${esc(image)}" />
   <meta property="og:image:width"  content="${card === 'summary_large_image' ? '1200' : '512'}" />
   <meta property="og:image:height" content="${card === 'summary_large_image' ? '630'  : '512'}" />
-  <meta property="og:image:type"   content="image/jpeg" />
+  <meta property="og:image:type"   content="${isDefault ? 'image/png' : 'image/jpeg'}" />
   <meta property="og:locale"       content="vi_VN" />
 
   <!-- Twitter / X -->
