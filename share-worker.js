@@ -10,6 +10,9 @@ const APP_URL       = 'https://phuongdaiho.github.io/BDSMap/';
 const DEFAULT_IMAGE = 'https://phuongdaiho.github.io/BDSMap/icons/icon-512.png';
 const IMGBB_KEY     = '19d04259d60ec3a851f341e8050e0fd6';
 
+// Social media / SEO crawlers that must NOT be redirected
+const BOT_UA = /facebookexternalhit|Twitterbot|LinkedInBot|Slackbot|TelegramBot|WhatsApp|Zalo|Googlebot|bingbot|DuckDuckBot|Applebot|Baiduspider|ia_archiver/i;
+
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -33,7 +36,6 @@ export default {
       try {
         const body  = await request.arrayBuffer();
         const uint8 = new Uint8Array(body);
-        // arraybuffer → base64 theo chunk để tránh stack overflow
         let binary = '';
         for (let i = 0; i < uint8.length; i += 8192) {
           binary += String.fromCharCode(...uint8.subarray(i, i + 8192));
@@ -56,13 +58,19 @@ export default {
       }
     }
 
-    const id  = url.searchParams.get('id');
-
+    const id = url.searchParams.get('id');
     if (!id) return Response.redirect(APP_URL, 302);
 
     const appUrl = `${APP_URL}?share=${encodeURIComponent(id)}`;
 
-    // Fetch location from Firestore REST API (3s timeout)
+    // ── Real users get HTTP redirect immediately (no Firestore fetch needed) ──
+    const ua    = request.headers.get('User-Agent') || '';
+    const isBot = BOT_UA.test(ua);
+    if (!isBot) {
+      return Response.redirect(appUrl, 302);
+    }
+
+    // ── Bots: fetch Firestore and serve OG page ──
     let loc = null;
     try {
       const controller = new AbortController();
@@ -76,18 +84,17 @@ export default {
       if (res.ok) loc = parseDoc(await res.json());
     } catch (_) {}
 
-    // Build OG data — fallback to app defaults if Firestore unreachable
-    const title = loc?.name  || 'BĐS đang bán — BĐS Map';
+    // Build OG data
+    const title = loc?.name || 'BĐS đang bán — BĐS Map';
     const parts = loc ? [loc.price, loc.acreage ? loc.acreage + ' m²' : '', loc.area, loc.status || 'Đang bán'] : [];
     const desc  = parts.filter(Boolean).join(' · ') || 'Xem thông tin BĐS đang bán gần bạn trên BĐS Map';
     const httpImages = (loc?.images || []).filter(i => i && i.startsWith('http'));
     const httpImage  = httpImages[0] || (loc?.image?.startsWith('http') ? loc.image : null);
-    const image = httpImage || DEFAULT_IMAGE;
-    const isDefault = image === DEFAULT_IMAGE;
-    const card  = isDefault ? 'summary' : 'summary_large_image';
+    const image      = httpImage || DEFAULT_IMAGE;
+    const isDefault  = image === DEFAULT_IMAGE;
+    const card       = isDefault ? 'summary' : 'summary_large_image';
 
-    // IMPORTANT: NO <meta http-equiv="refresh"> — bots would follow it to GitHub Pages
-    // Use JS-only redirect so real users get sent to the app but bots stay on this page
+    // OG page for bots — no JS redirect (bots must stay here to read OG tags)
     const html = `<!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -119,10 +126,6 @@ export default {
   <a href="${esc(appUrl)}" style="background:#1a73e8;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:1rem">
     Xem trên BĐS Map →
   </a>
-  <script>
-    // JS redirect — bots (facebookexternalhit, Zalo…) don't run JS so they stay here and read OG tags
-    window.location.replace(${JSON.stringify(appUrl)});
-  <\/script>
 </body>
 </html>`;
 
