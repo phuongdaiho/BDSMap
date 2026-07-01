@@ -2377,15 +2377,20 @@
     }
 
     async function uploadImage(blob) {
-      const res  = await fetch(`${SHARE_WORKER_URL}/upload`, {
-        method: 'POST',
-        headers: { 'Content-Type': blob.type || 'image/jpeg' },
-        body: blob,
+      const IMGBB_KEY = '19d04259d60ec3a851f341e8050e0fd6';
+      const b64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload  = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
       });
-      if (!res.ok) throw new Error('upload error ' + res.status);
+      const form = new FormData();
+      form.append('image', b64);
+      const res  = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, { method: 'POST', body: form });
+      if (!res.ok) throw new Error('imgBB ' + res.status);
       const json = await res.json();
-      if (json.error) throw new Error(json.error);
-      return json.url;
+      if (!json.success) throw new Error(json.error?.message || 'imgBB failed');
+      return json.data.url;
     }
 
     // ── Multi-image slot system ──
