@@ -8,6 +8,7 @@ const PROJECT       = 'bdsmap-3b584';
 const API_KEY       = 'AIzaSyBuuxnR8w8Sd2VSuMfU8Sx7S3aoYLWneD8';
 const APP_URL       = 'https://phuongdaiho.github.io/BDSMap/';
 const DEFAULT_IMAGE = 'https://phuongdaiho.github.io/BDSMap/icons/icon-512.png';
+const IMGBB_KEY     = '19d04259d60ec3a851f341e8050e0fd6';
 
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
@@ -24,21 +25,27 @@ export default {
       return new Response(null, { status: 204, headers: CORS });
     }
 
-    // ── /upload — proxy ảnh lên telegra.ph (tránh CORS) ──
+    // ── /upload — proxy ảnh lên imgBB (tránh CORS, key giữ server-side) ──
     if (url.pathname === '/upload') {
       if (request.method !== 'POST') {
         return new Response('Method Not Allowed', { status: 405, headers: CORS });
       }
       try {
-        const body = await request.arrayBuffer();
-        const ct   = request.headers.get('Content-Type') || 'image/jpeg';
+        const body  = await request.arrayBuffer();
+        const uint8 = new Uint8Array(body);
+        // arraybuffer → base64 theo chunk để tránh stack overflow
+        let binary = '';
+        for (let i = 0; i < uint8.length; i += 8192) {
+          binary += String.fromCharCode(...uint8.subarray(i, i + 8192));
+        }
+        const b64  = btoa(binary);
         const form = new FormData();
-        form.append('file', new Blob([body], { type: ct }), 'image.jpg');
-        const res  = await fetch('https://telegra.ph/upload', { method: 'POST', body: form });
+        form.append('image', b64);
+        const res  = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, { method: 'POST', body: form });
         const data = await res.json();
-        if (!Array.isArray(data) || !data[0]?.src) throw new Error('bad response');
+        if (!data.success) throw new Error(data.error?.message || 'imgBB error');
         return new Response(
-          JSON.stringify({ url: 'https://telegra.ph' + data[0].src }),
+          JSON.stringify({ url: data.data.url }),
           { status: 200, headers: { 'Content-Type': 'application/json', ...CORS } }
         );
       } catch (e) {
